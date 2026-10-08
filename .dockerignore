@@ -1,0 +1,8 @@
+# Ignore everything, then allow only what the image build needs.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+**/__pycache__/
+**/*.py[cod]

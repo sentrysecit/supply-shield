@@ -1,0 +1,108 @@
+[project]
+name = "supply-shield"
+version = "0.1.0"
+description = "Dependency firewall: a registry mirror for npm and PyPI that vets every package before it reaches your team."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Supply-Shield contributors" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "cyclonedx-python-lib>=11.12.0",
+    "fastapi>=0.143.0",
+    "httpx>=0.28.1",
+    "packaging>=26.3",
+    "prometheus-client>=0.26.0",
+    "pydantic-settings>=2.15.0",
+    "rapidfuzz>=3.14.6",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "commitizen>=4.19.2",
+    "mypy>=2.4.0",
+    "pip-audit>=2.10.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "UP",    # pyupgrade
+    "N",     # pep8-naming
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "C4",    # flake8-comprehensions
+    "RUF",   # ruff-specific
+    "ASYNC", # flake8-async
+    "PT",    # flake8-pytest-style
+    "PTH",   # flake8-use-pathlib
+    "RET",   # flake8-return
+    "T20",   # flake8-print
+    "ERA",   # eradicate
+    "PL",    # pylint
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
+markers = [
+    "integration: tests that talk to real external services (deselect with -m \"not integration\")",
+]
+
+[tool.coverage.run]
+source = ["src/supply_shield"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_empty = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "uv"
+tag_format = "v$version"
+update_changelog_on_bump = true
+major_version_zero = true

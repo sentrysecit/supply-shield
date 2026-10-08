@@ -1,0 +1,46 @@
+name: Nueva funcionalidad
+description: Propón una funcionalidad o mejora.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o necesidad
+      description: Qué se quiere resolver y para quién.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: Cómo debería comportarse la solución.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - proxy (npm / PyPI)
+        - analyzers (vulnerabilidades / typosquatting)
+        - policy
+        - sbom
+        - cache
+        - infraestructura / CI
+        - documentación
+    validations:
+      required: true

@@ -1,0 +1,47 @@
+name: Tarea de investigación (INV)
+description: Tarea de investigación del documento académico.
+title: "INV-XX: "
+labels: [research]
+body:
+  - type: input
+    id: inv_id
+    attributes:
+      label: Identificador
+      description: Código de la tarea en el documento académico.
+      placeholder: INV-01
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Pregunta de investigación
+      description: Qué se necesita averiguar o decidir.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto y motivación
+      description: Por qué importa para Supply-Shield y qué decisión desbloquea.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Alcance
+      description: Qué entra y qué queda fuera de esta investigación.
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Entregables
+      placeholder: |
+        - [ ] Resumen de hallazgos en `docs/`
+        - [ ] ADR con la decisión (si aplica)
+        - [ ] Prueba de concepto (si aplica)
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Fuentes iniciales
+      description: Artículos, documentación o herramientas por revisar.

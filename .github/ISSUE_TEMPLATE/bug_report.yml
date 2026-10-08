@@ -1,0 +1,50 @@
+name: Reporte de error
+description: Algo no funciona como debería.
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción
+      description: Qué pasó, de forma clara y concisa.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      placeholder: |
+        1. Configurar `registry=` apuntando al proxy
+        2. Ejecutar `npm install <paquete>`
+        3. Ver el error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o salida relevante
+      description: Elimina cualquier secreto antes de pegar.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Versión o commit
+      placeholder: v0.1.0 o SHA del commit
+  - type: dropdown
+    id: ecosystem
+    attributes:
+      label: Ecosistema afectado
+      options:
+        - npm
+        - PyPI
+        - Ambos
+        - No aplica
+    validations:
+      required: true
