@@ -23,9 +23,9 @@ Incluye, si puedes:
 
 ## Qué puedes esperar
 
-- Acuse de recibo en un plazo de 5 días hábiles.
-- Una evaluación inicial y los siguientes pasos en un plazo de 10 días hábiles.
-- Coordinación contigo sobre la corrección y la divulgación; te daremos crédito en el aviso si lo deseas.
+- Confirmaremos la recepción de tu reporte cuando nos sea posible.
+- Revisaremos la información recibida según su relevancia, disponibilidad y prioridades, y te informaremos sobre los posibles siguientes pasos cuando corresponda.
+- Si se requiere una corrección o divulgación, podremos coordinar contigo las acciones pertinentes, de acuerdo con nuestra capacidad y los avances de la revisión. También podremos reconocer tu contribución en el aviso correspondiente, si así lo deseas.
 
 ## Alcance
 
