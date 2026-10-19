@@ -31,7 +31,7 @@ Incluye, si puedes:
 
 Nos interesa especialmente cualquier fallo que permita:
 
-- saltarse las políticas de bloqueo del proxy,
-- alterar los bytes de un artefacto servido por el proxy,
-- envenenar la caché de resultados o de metadatos,
+- saltarse las políticas de bloqueo del proxy.
+- alterar los bytes de un artefacto servido por el proxy.
+- envenenar la caché de resultados o de metadatos.
 - filtrar credenciales o secretos de configuración.
