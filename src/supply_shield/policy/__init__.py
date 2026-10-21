@@ -1,1 +1,1 @@
-"""Policy engine: decides whether a requested package is allowed or blocked."""
+"""Motor de política: decide si un paquete pedido se permite o se bloquea."""
