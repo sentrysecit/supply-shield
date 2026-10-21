@@ -1,4 +1,4 @@
-"""Tests for the liveness and readiness probes."""
+"""Pruebas de las sondas de vida y de preparación."""
 
 import httpx
 import pytest

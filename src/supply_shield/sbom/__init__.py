@@ -1,1 +1,1 @@
-"""SBOM generation in CycloneDX format."""
+"""Generación de SBOM en formato CycloneDX."""
