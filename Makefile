@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install run lint format typecheck test test-integration cov security check up down clean demo
+.PHONY: help install run lint format typecheck test test-integration cov security check up down clean
 
 AUDIT_REQUIREMENTS := requirements-audit.txt
 
@@ -48,6 +48,3 @@ down: ## Stop the container
 
 clean: ## Remove caches and generated artifacts
 	uv run python -c "import pathlib, shutil; [shutil.rmtree(p, ignore_errors=True) for pattern in ('.pytest_cache', '.mypy_cache', '.ruff_cache', 'htmlcov', 'dist', '**/__pycache__') for p in pathlib.Path().glob(pattern) if '.venv' not in p.parts]; [p.unlink() for p in map(pathlib.Path, ('.coverage', 'coverage.xml', '$(AUDIT_REQUIREMENTS)')) if p.exists()]"
-
-demo: ## Run the end-to-end demo script
-	uv run python scripts/demo.py
