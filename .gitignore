@@ -30,3 +30,4 @@ requirements-audit.txt
 .DS_Store
 Thumbs.db
 .omo
+.senpi/
