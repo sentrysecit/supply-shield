@@ -27,6 +27,10 @@ class UpstreamIntegrityError(httpx.HTTPError):
     """The downloaded artifact's SHA-512 did not match the expected digest."""
 
 
+class UpstreamTooLargeError(httpx.HTTPError):
+    """The upstream response exceeded the configured maximum size."""
+
+
 def _normalize_expected_digest(expected_sha512: str) -> str:
     """Strip a ``sha512`` prefix and lowercase the hex digest for comparison."""
     digest = expected_sha512.strip()
@@ -53,7 +57,9 @@ async def stream_upstream(
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
     expected = _normalize_expected_digest(expected_sha512)
+    max_bytes = settings.upstream_max_response_bytes
     hasher = sha512()
+    seen = 0
 
     async with client.stream("GET", parsed) as response:
         if _REDIRECT_STATUS_LOWER <= response.status_code < _REDIRECT_STATUS_UPPER:
@@ -67,6 +73,11 @@ async def stream_upstream(
 
         async for chunk in response.aiter_raw():
             hasher.update(chunk)
+            seen += len(chunk)
+            if seen > max_bytes:
+                raise UpstreamTooLargeError(
+                    f"upstream {parsed} exceeded the {max_bytes}-byte limit",
+                )
             yield chunk
 
     if hasher.hexdigest() != expected:
