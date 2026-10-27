@@ -1,4 +1,4 @@
-"""Supply-Shield: a dependency firewall for npm and PyPI."""
+"""Supply-Shield: firewall de dependencias para npm y PyPI."""
 
 from importlib.metadata import version
 

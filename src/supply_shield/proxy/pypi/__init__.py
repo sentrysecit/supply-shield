@@ -1,1 +1,1 @@
-"""PyPI mirror adapter (Simple Repository API and distribution files)."""
+"""Adaptador del espejo de PyPI (Simple Repository API y archivos de distribución)."""
