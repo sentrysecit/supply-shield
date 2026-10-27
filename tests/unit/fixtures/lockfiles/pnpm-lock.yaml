@@ -1,0 +1,14 @@
+lockfileVersion: '9.0'
+importers:
+  .:
+    dependencies:
+      lodash: ^4.17.21
+    devDependencies:
+      express: ^4.18.2
+packages:
+  /lodash/4.17.21:
+    resolution: registry.npmjs.org/lodash/-/lodash-4.17.21.tgz
+    checksum: sha512:Z5lHbM8Pc
+  /express/4.18.2:
+    resolution: registry.npmjs.org/express/-/express-4.18.2.tgz
+    checksum: sha512:YFR0F
