@@ -1,4 +1,4 @@
-"""Structured logging configuration built on structlog."""
+"""Configuración de registro estructurado sobre structlog."""
 
 import logging
 
@@ -9,7 +9,7 @@ from supply_shield.config import Settings
 
 
 def configure_logging(settings: Settings) -> None:
-    """Configure structlog: JSON lines in production, readable console output in development."""
+    """Configura structlog: JSON en producción y consola legible en desarrollo."""
     processors: list[Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,

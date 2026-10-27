@@ -2,7 +2,7 @@
 
 Supply-Shield se ubica entre los clientes de paquetes del equipo y los registros públicos. Funciona como **registry mirror**: los clientes lo usan como si fuera el registro (ver [ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)).
 
-> Este documento describe la arquitectura objetivo. Hoy solo están implementados la aplicación base y los endpoints de salud.
+> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`) y la caché en memoria. Los detectores, el proxy y la base de datos todavía no.
 
 ## Vista de alto nivel
 
@@ -56,7 +56,8 @@ flowchart LR
 | `supply_shield.proxy`                | Adaptadores de registro para npm y PyPI                      |
 | `supply_shield.analyzers`            | Vulnerabilidades (OSV.dev) y typosquatting                   |
 | `supply_shield.policy`               | Decisión de permitir o bloquear                              |
-| `supply_shield.cache`                | Caché de resultados y metadatos                              |
+| `supply_shield.core`                 | Modelos compartidos: paquete, hallazgo y decisión            |
+| `supply_shield.cache`                | Caché en memoria (LRU y TTL); Redis la puede reemplazar      |
 | `supply_shield.sbom`                 | SBOM en CycloneDX                                            |
 
 ## Principios
