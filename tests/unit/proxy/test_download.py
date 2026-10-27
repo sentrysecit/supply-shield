@@ -9,6 +9,7 @@ import respx
 from supply_shield.config import Settings
 from supply_shield.proxy.download import (
     UpstreamIntegrityError,
+    UpstreamTooLargeError,
     stream_upstream,
 )
 from supply_shield.proxy.upstream import (
@@ -101,3 +102,31 @@ async def test_stream_raises_on_error_status() -> None:
     async with build_upstream_client(settings) as client:
         with pytest.raises(UpstreamRequestError, match="status"):
             await _collect(client, URL, "0" * 128, settings)
+
+
+@respx.mock
+async def test_stream_aborts_when_size_limit_exceeded() -> None:
+    body = b"x" * 100
+    respx.get(URL).respond(200, content=body)
+    settings = _settings(upstream_max_response_bytes=8)
+    received = bytearray()
+
+    async def consume() -> None:
+        async for chunk in stream_upstream(client, URL, "0" * 128, settings):
+            received.extend(chunk)
+
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamTooLargeError):
+            await consume()
+    assert len(received) <= 8
+
+
+@respx.mock
+async def test_stream_succeeds_under_size_limit() -> None:
+    body = b"small-payload"
+    respx.get(URL).respond(200, content=body)
+    expected = sha512(body).hexdigest()
+    settings = _settings(upstream_max_response_bytes=1024)
+    async with build_upstream_client(settings) as client:
+        received = await _collect(client, URL, expected, settings)
+    assert received == body
