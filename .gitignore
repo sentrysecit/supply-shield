@@ -29,3 +29,4 @@ requirements-audit.txt
 *.swp
 .DS_Store
 Thumbs.db
+.omo
