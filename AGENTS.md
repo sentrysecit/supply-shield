@@ -15,7 +15,7 @@ Supply-Shield es un *dependency firewall*: un proxy de registros de paquetes (np
 
 ## Comandos
 
-**Ejecuta `make check` antes de dar por terminada cualquier tarea**; debe pasar en verde.
+**Ejecuta `make check` antes de dar por terminada cualquier tarea**; debe pasar en verde. O bien, check.ps1 (Windows) o `uv run ...` de los equivalentes listados en el [README](README.md).
 
 | Comando          | Qué hace                                             |
 | ---------------- | ---------------------------------------------------- |
