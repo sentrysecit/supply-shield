@@ -41,7 +41,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = [
@@ -72,7 +72,7 @@ select = [
 python_version = "3.13"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -83,6 +83,7 @@ warn_required_dynamic_aliases = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+pythonpath = ["scripts"]
 addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
 markers = [
     "integration: tests that talk to real external services (deselect with -m \"not integration\")",
