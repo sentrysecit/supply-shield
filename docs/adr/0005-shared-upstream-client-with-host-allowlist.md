@@ -1,4 +1,4 @@
-# 0004. Cliente upstream compartido con allowlist de hosts y descarga verificada en streaming
+# 0005. Cliente upstream compartido con allowlist de hosts y descarga verificada en streaming
 
 - **Estado**: Aceptado
 - **Fecha**: 2026-10-26
