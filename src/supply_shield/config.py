@@ -27,6 +27,21 @@ class Settings(BaseSettings):
     cache_findings_ttl_seconds: int = Field(default=21_600, ge=1)
     cache_decisions_ttl_seconds: int = Field(default=300, ge=1)
 
+    # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
+    # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
+    # como un array JSON, p. ej. SUPPLY_SHIELD_UPSTREAM_HOSTS='["registry.npmjs.org"]'.
+    upstream_hosts: tuple[str, ...] = (
+        "registry.npmjs.org",
+        "pypi.org",
+        "files.pythonhosted.org",
+    )
+    upstream_max_response_bytes: int = Field(default=536_870_912, ge=1)  # 512 MiB
+    upstream_connect_timeout_seconds: float = Field(default=10.0, gt=0)
+    upstream_read_timeout_seconds: float = Field(default=30.0, gt=0)
+    upstream_max_retries: int = Field(default=3, ge=0)
+    upstream_backoff_factor: float = Field(default=0.5, gt=0)
+    upstream_max_connections: int = Field(default=100, ge=1)
+
 
 @lru_cache
 def get_settings() -> Settings:
