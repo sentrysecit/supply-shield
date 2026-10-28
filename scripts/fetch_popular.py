@@ -1,17 +1,16 @@
-"""Download the most popular npm and PyPI package names into ``data/popular/``.
+"""Descarga los nombres de paquetes más populares de npm y PyPI en ``data/popular/``.
 
-Sources, chosen in ``docs/adr/0004-popular-package-sources.md``:
+Fuentes, elegidas en ``docs/adr/0004-popular-package-sources.md``:
 
-- PyPI: hugovk's *top-pypi-packages*, a monthly dump ranked by downloads in the
-  last 30 days.
-- npm: the ``topDownload`` list of the ``npm-high-impact`` package, downloaded as
-  the registry tarball and checked against its ``sha512`` integrity.
+- PyPI: *top-pypi-packages* de hugovk, volcado mensual ordenado por descargas de
+  los últimos 30 días.
+- npm: la lista ``topDownload`` del paquete ``npm-high-impact``, descargada como
+  tarball del registro y verificada contra su integridad ``sha512``.
 
-A list is rewritten only when its names or their order change, so the weekly
-job opens a pull request only when there is something new.
+Una lista solo se reescribe si cambian sus nombres o su orden, así el job
+semanal abre un pull request solo cuando hay algo nuevo.
 
-Usage::
-
+Uso:
     uv run python scripts/fetch_popular.py [--ecosystem npm|pypi] [--limit 5000]
 """
 
@@ -59,7 +58,7 @@ Fetcher = Callable[[httpx.AsyncClient, int, datetime], Awaitable[PopularPackages
 
 
 class FetchError(Exception):
-    """A source answered, but with data that cannot be trusted or used."""
+    """Una fuente respondió, pero con datos que no se pueden usar ni confiar."""
 
 
 class _PypiRow(BaseModel):
@@ -88,10 +87,10 @@ class _NpmPackument(BaseModel):
 
 
 def rank_names(ecosystem: Ecosystem, names: Iterable[str], limit: int) -> tuple[str, ...]:
-    """Normalize ``names`` in order, drop duplicates and invalid ones, and keep ``limit``.
+    """Normaliza ``names`` en orden, quita duplicados e inválidos y conserva ``limit``.
 
-    Raises ``FetchError`` if the source does not reach ``limit`` usable names, so a
-    truncated download never replaces a complete list.
+    Lanza ``FetchError`` si la fuente no llega a ``limit`` nombres válidos, para que
+    una descarga truncada nunca reemplace una lista completa.
     """
     ranked: list[str] = []
     seen: set[str] = set()
@@ -112,13 +111,13 @@ def rank_names(ecosystem: Ecosystem, names: Iterable[str], limit: int) -> tuple[
 
 
 def parse_naive_utc(value: str) -> datetime:
-    """Parse an ISO timestamp, reading it as UTC when it carries no offset."""
+    """Interpreta una fecha ISO; si no trae zona horaria, la toma como UTC."""
     parsed = datetime.fromisoformat(value)
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 def verify_integrity(data: bytes, integrity: str) -> None:
-    """Check ``data`` against an npm ``sha512-<base64>`` integrity string."""
+    """Verifica ``data`` contra una cadena de integridad npm ``sha512-<base64>``."""
     # El campo sigue el formato SRI: puede traer varios hashes separados por espacios.
     expected = [
         entry.removeprefix("sha512-") for entry in integrity.split() if entry.startswith("sha512-")
@@ -133,9 +132,10 @@ def verify_integrity(data: bytes, integrity: str) -> None:
 
 
 def read_tar_member(archive: bytes, member: str) -> str:
-    """Return one UTF-8 file of a ``.tgz`` held in memory.
+    """Devuelve un archivo UTF-8 de un ``.tgz`` que está en memoria.
 
-    Nothing is extracted to disk, so member paths cannot escape a directory.
+    No se extrae nada a disco, así que las rutas del tarball no pueden salirse de un
+    directorio.
     """
     try:
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
@@ -158,10 +158,10 @@ _JS_STRING = re.compile(r"""'([^'\\\n]*)'|"([^"\\\n]*)\"""")
 
 
 def parse_js_string_array(source: str, export: str) -> list[str]:
-    """Read ``export const <export> = ['a', 'b', ...]`` from a JavaScript module.
+    """Lee ``export const <export> = ['a', 'b', ...]`` de un módulo JavaScript.
 
-    Anything other than quoted strings, commas and whitespace inside the array
-    raises ``FetchError`` instead of being skipped.
+    Cualquier cosa distinta de cadenas entre comillas, comas y espacios dentro del
+    arreglo lanza ``FetchError`` en lugar de ignorarse.
     """
     pattern = re.compile(rf"export\s+const\s+{re.escape(export)}\s*=\s*\[(.*?)\]", re.DOTALL)
     match = pattern.search(source)
@@ -176,7 +176,7 @@ def parse_js_string_array(source: str, export: str) -> list[str]:
 
 
 async def fetch_pypi(client: httpx.AsyncClient, limit: int, now: datetime) -> PopularPackages:
-    """Build the PyPI list from the top-pypi-packages monthly dump."""
+    """Arma la lista de PyPI a partir del volcado mensual de top-pypi-packages."""
     response = await client.get(PYPI_TOP_URL)
     response.raise_for_status()
     dump = _PypiDump.model_validate_json(response.content)
@@ -196,7 +196,7 @@ async def fetch_pypi(client: httpx.AsyncClient, limit: int, now: datetime) -> Po
 
 
 async def fetch_npm(client: httpx.AsyncClient, limit: int, now: datetime) -> PopularPackages:
-    """Build the npm list from the latest ``npm-high-impact`` release."""
+    """Arma la lista de npm a partir de la última versión de ``npm-high-impact``."""
     response = await client.get(f"{NPM_REGISTRY}/{NPM_LIST_PACKAGE}")
     response.raise_for_status()
     packument = _NpmPackument.model_validate_json(response.content)
@@ -237,7 +237,7 @@ FETCHERS: dict[Ecosystem, Fetcher] = {Ecosystem.NPM: fetch_npm, Ecosystem.PYPI: 
 
 
 async def fetch_all(ecosystems: Sequence[Ecosystem], limit: int) -> list[PopularPackages]:
-    """Fetch every requested list concurrently; any failure aborts the whole run."""
+    """Descarga en paralelo cada lista pedida; cualquier fallo aborta toda la ejecución."""
     now = datetime.now(UTC).replace(microsecond=0)
     transport = httpx.AsyncHTTPTransport(retries=HTTP_RETRIES)
     async with httpx.AsyncClient(
@@ -260,12 +260,12 @@ async def fetch_all(ecosystems: Sequence[Ecosystem], limit: int) -> list[Popular
 
 
 def output_path(output_dir: Path, ecosystem: Ecosystem) -> Path:
-    """Path of the list file for ``ecosystem``."""
+    """Ruta del archivo de la lista de ``ecosystem``."""
     return output_dir / f"{ecosystem.value}.json"
 
 
 def write_if_changed(popular: PopularPackages, path: Path) -> bool:
-    """Write ``popular`` unless ``path`` already holds the same ranking; tell if it wrote."""
+    """Escribe ``popular`` salvo que ``path`` ya tenga el mismo ranking; indica si escribió."""
     if path.exists():
         try:
             current = load_popular_packages(path)
@@ -296,7 +296,7 @@ def _positive_int(value: str) -> int:
 
 
 def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
-    """Parse the command line."""
+    """Lee los argumentos de la línea de comandos."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument(
         "--ecosystem",
@@ -320,7 +320,7 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Fetch the lists, write the ones that changed and return the exit code."""
+    """Descarga las listas, escribe las que cambiaron y devuelve el código de salida."""
     args = parse_args(argv)
     configure_logging(get_settings())
     ecosystems = [Ecosystem(value) for value in args.ecosystem or [e.value for e in Ecosystem]]
