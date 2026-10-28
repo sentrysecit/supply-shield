@@ -1,9 +1,9 @@
-"""Shared upstream HTTP client with a strict host allowlist.
+"""Cliente HTTP upstream compartido con allowlist estricta de hosts.
 
-Every outbound request to a package registry goes through this module. The
-allowlist is the SSRF boundary: a URL that does not target one of the configured
-upstream hosts is rejected before any socket is opened. Redirects are not
-followed, so a malicious ``Location`` cannot bypass the allowlist.
+Cada petición saliente a un registro de paquetes pasa por este módulo. La allowlist
+es la frontera SSRF: una URL que no apunte a uno de los hosts upstream configurados
+se rechaza antes de abrir cualquier socket. Los redirects no se siguen, de modo que
+un ``Location`` malicioso no puede bypassar la allowlist.
 """
 
 import asyncio
@@ -22,19 +22,19 @@ _SERVER_ERROR_STATUS_LOWER = 500
 
 
 class UpstreamHostError(ValueError):
-    """A URL targets a host, scheme, or form the upstream allowlist rejects."""
+    """Una URL apunta a un host, esquema o forma que la allowlist upstream rechaza."""
 
 
 class UpstreamRequestError(httpx.HTTPError):
-    """Transient upstream failures exhausted the configured retries."""
+    """Fallos transitorios del upstream agotaron los reintentos configurados."""
 
 
 def validate_upstream_url(url: str | httpx.URL, allowed_hosts: tuple[str, ...]) -> httpx.URL:
-    """Parse ``url`` and validate it against the upstream allowlist.
+    """Parsea ``url`` y la valida contra la allowlist upstream.
 
-    Only HTTP(S) URLs without credentials whose host is in ``allowed_hosts`` are
-    accepted. Anything else raises :class:`UpstreamHostError` so the caller never
-    opens a connection to an unintended destination.
+    Solo se aceptan URLs HTTP(S) sin credenciales cuyo host esté en
+    ``allowed_hosts``. Cualquier otro caso lanza :class:`UpstreamHostError` para
+    que el llamador nunca abra una conexión a un destino no previsto.
     """
     parsed = httpx.URL(url)
     if parsed.scheme not in _ALLOWED_SCHEMES:
@@ -48,10 +48,10 @@ def validate_upstream_url(url: str | httpx.URL, allowed_hosts: tuple[str, ...]) 
 
 
 def build_upstream_client(settings: Settings) -> httpx.AsyncClient:
-    """Build the shared upstream :class:`httpx.AsyncClient` from ``settings``.
+    """Construye el :class:`httpx.AsyncClient` upstream compartido desde ``settings``.
 
-    HTTP/2 and a connection pool are enabled; redirects are disabled so the
-    allowlist cannot be bypassed via a ``Location`` header.
+    Se habilitan HTTP/2 y un pool de conexiones; los redirects se desactivan para
+    que la allowlist no se pueda bypassar vía una cabecera ``Location``.
     """
     return httpx.AsyncClient(
         http2=True,
@@ -65,7 +65,7 @@ def build_upstream_client(settings: Settings) -> httpx.AsyncClient:
 
 
 def _backoff_delay(settings: Settings, attempt: int) -> float:
-    """Exponential backoff wait for ``attempt`` (0-based), in seconds."""
+    """Espera de backoff exponencial para ``attempt`` (base 0), en segundos."""
     factor: float = settings.upstream_backoff_factor
     return factor * (1 << attempt)
 
@@ -75,11 +75,11 @@ async def upstream_get(
     url: str | httpx.URL,
     settings: Settings,
 ) -> httpx.Response:
-    """GET an upstream resource, enforcing the allowlist and retries.
+    """GET a un recurso upstream, aplicando la allowlist y los reintentos.
 
-    Transient failures (timeouts, connection errors, 5xx) are retried with
-    exponential backoff up to ``settings.upstream_max_retries`` times. A 3xx
-    response is rejected: the proxy never follows redirects.
+    Los fallos transitorios (timeouts, errores de conexión, 5xx) se reintentan con
+    backoff exponencial hasta ``settings.upstream_max_retries`` veces. Una respuesta
+    3xx se rechaza: el proxy nunca sigue redirects.
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
     max_retries = settings.upstream_max_retries
@@ -113,7 +113,7 @@ async def _sleep_and_log(
     settings: Settings,
     reason: str,
 ) -> None:
-    """Wait for the backoff delay and record the retry attempt."""
+    """Espera el delay de backoff y registra el intento de reintento."""
     delay = _backoff_delay(settings, attempt)
     logger.warning(
         "upstream_retry",
