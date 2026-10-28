@@ -33,7 +33,7 @@ Sin `make` (Windows), usa los equivalentes `uv run ...` listados en el [README](
 
 ## Convenciones de código
 
-- Código, nombres, docstrings y mensajes de commit en **inglés**; documentación del equipo en **español**.
+- Código, nombres, docstrings y mensajes de commit en **inglés**; documentación del equipo y comentarios dentro del código (docstrings) en **español**.
 - Todo tipado: `mypy --strict` con cero errores. Evita `Any` y los `# type: ignore` sin justificar.
 - Docstrings breves en módulos, clases y funciones públicas.
 - Ruff es linter y formateador (línea de 100). No uses black ni isort.
