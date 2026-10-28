@@ -1,4 +1,4 @@
-"""Popular-package fetch script, with every upstream call mocked."""
+"""Script de descarga de paquetes populares, con todas las llamadas upstream simuladas."""
 
 import base64
 import hashlib
@@ -76,7 +76,7 @@ NPM_TARBALL = _tarball({NPM_LIST_MEMBER: _js_list(NPM_NAMES)})
 
 @pytest.fixture
 def upstream() -> Iterator[respx.MockRouter]:
-    """Both sources answering with small, valid lists."""
+    """Las dos fuentes responden con listas pequeñas y válidas."""
     with respx.mock(assert_all_called=False) as router:
         router.get(PYPI_TOP_URL, name="pypi").mock(return_value=httpx.Response(200, json=PYPI_DUMP))
         router.get(PACKUMENT_URL, name="packument").mock(

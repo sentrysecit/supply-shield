@@ -1,4 +1,4 @@
-"""Ranked lists of popular package names that typosquatting compares against."""
+"""Listas ordenadas de paquetes populares contra las que compara el detector de typosquatting."""
 
 from pathlib import Path
 from typing import Literal
@@ -11,7 +11,7 @@ from supply_shield.core.naming import normalize_package_name
 
 
 class PopularPackagesSource(BaseModel):
-    """Where a ranking comes from and when its publisher produced it."""
+    """De dónde sale un ranking y cuándo lo publicó su fuente."""
 
     model_config = FROZEN
 
@@ -22,7 +22,7 @@ class PopularPackagesSource(BaseModel):
 
 
 class PopularPackages(BaseModel):
-    """Most popular names of one ecosystem, most popular first, already normalized."""
+    """Nombres más populares de un ecosistema, del más popular al menos, ya normalizados."""
 
     model_config = FROZEN
 
@@ -51,14 +51,14 @@ class PopularPackages(BaseModel):
         return self
 
     def same_ranking(self, other: "PopularPackages") -> bool:
-        """Tell whether ``other`` lists the same names in the same order.
+        """Indica si ``other`` trae los mismos nombres en el mismo orden.
 
-        Dates and source details are ignored, so a new upstream dump with an
-        identical ranking does not count as a change.
+        Ignora las fechas y los datos de la fuente: un volcado nuevo con el mismo
+        ranking no cuenta como cambio.
         """
         return self.ecosystem is other.ecosystem and self.packages == other.packages
 
 
 def load_popular_packages(path: Path) -> PopularPackages:
-    """Read and validate a popular-packages file written by ``scripts/fetch_popular.py``."""
+    """Lee y valida un archivo de paquetes populares escrito por ``scripts/fetch_popular.py``."""
     return PopularPackages.model_validate_json(path.read_bytes())

@@ -1,4 +1,4 @@
-"""Popular-package lists: file contract, validation and load time."""
+"""Listas de paquetes populares: formato del archivo, validación y tiempo de carga."""
 
 import time
 from datetime import UTC, datetime
