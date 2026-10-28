@@ -1,9 +1,9 @@
-"""Streaming download of upstream artifacts with SHA-512 verification.
+"""Descarga en streaming de artefactos upstream con verificación SHA-512.
 
-The proxy never loads an artifact into memory: bytes are forwarded to the client
-as they arrive while a running SHA-512 is updated. Once the upstream stream ends
-the computed digest is compared with the expected one and the download is aborted
-on mismatch. The host allowlist is enforced before any request is issued.
+El proxy nunca carga un artefacto en memoria: los bytes se reenvían al cliente a
+medida que llegan mientras se actualiza un SHA-512 en curso. Al cerrarse el stream
+upstream, el digest calculado se compara con el esperado y la descarga se aborta si
+no coinciden. La allowlist de hosts se aplica antes de emitir cualquier petición.
 """
 
 from collections.abc import AsyncIterator
@@ -24,15 +24,15 @@ _ERROR_STATUS_LOWER = 400
 
 
 class UpstreamIntegrityError(httpx.HTTPError):
-    """The downloaded artifact's SHA-512 did not match the expected digest."""
+    """El SHA-512 del artefacto descargado no coincidió con el digest esperado."""
 
 
 class UpstreamTooLargeError(httpx.HTTPError):
-    """The upstream response exceeded the configured maximum size."""
+    """La respuesta upstream superó el tamaño máximo configurado."""
 
 
 def _normalize_expected_digest(expected_sha512: str) -> str:
-    """Strip a ``sha512`` prefix and lowercase the hex digest for comparison."""
+    """Quita un prefijo ``sha512`` y pasa a minúsculas el digest hex para comparar."""
     digest = expected_sha512.strip()
     for prefix in ("sha512-", "sha512:", "sha512"):
         if digest.startswith(prefix):
@@ -47,13 +47,13 @@ async def stream_upstream(
     expected_sha512: str,
     settings: Settings,
 ) -> AsyncIterator[bytes]:
-    """Stream an upstream artifact, verifying its SHA-512 against ``expected_sha512``.
+    """Streamea un artefacto upstream, verificando su SHA-512 contra ``expected_sha512``.
 
-    Bytes are yielded as they arrive so the caller can forward them to its client
-    without buffering. After the stream ends the computed digest is compared with
-    the expected one; on mismatch :class:`UpstreamIntegrityError` is raised so the
-    response is aborted rather than served as a valid artifact. The URL is
-    validated against the allowlist before any request is opened.
+    Los bytes se yield a medida que llegan para que el llamador los reenvíe a su
+    cliente sin buffering. Al cerrarse el stream, el digest calculado se compara con
+    el esperado; si no coinciden se lanza :class:`UpstreamIntegrityError` para
+    abortar la respuesta en lugar de servirla como artefacto válido. La URL se
+    valida contra la allowlist antes de abrir cualquier petición.
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
     expected = _normalize_expected_digest(expected_sha512)
