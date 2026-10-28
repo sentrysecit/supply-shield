@@ -86,7 +86,7 @@ Todos estos comandos se ejecutan desde la carpeta `supply-shield`.
 **`make check`** corre, en este orden, lo mismo que valida la CI:
 
 1. `make lint`: ruff busca errores de estilo y `ruff format --check` comprueba el formato. No modifica archivos. Para corregirlos está `make format`.
-2. `make typecheck`: mypy en modo estricto sobre `src` y `tests`.
+2. `make typecheck`: mypy en modo estricto sobre `src`, `tests` y `scripts`.
 3. `make security`: bandit revisa `src`, y pip-audit revisa las dependencias fijadas en `uv.lock` (con sus hashes) en busca de vulnerabilidades conocidas.
 4. `make cov`: todas las pruebas con cobertura. El mínimo sigue siendo 80 %.
 
@@ -132,10 +132,13 @@ supply-shield/
 ├── tests/
 │   ├── unit/            # pruebas rápidas, sin red
 │   └── integration/     # pruebas con marker "integration"
+├── scripts/             # utilidades de mantenimiento (fetch_popular.py)
+├── data/
+│   └── popular/         # top 5 000 de npm y PyPI para typosquatting
 ├── docs/
 │   ├── architecture.md  # diagrama de alto nivel
 │   └── adr/             # registros de decisiones de arquitectura
-├── .github/             # CI, CodeQL, Dependabot y plantillas
+├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
