@@ -1,0 +1,48 @@
+name: Refresh popular packages
+
+on:
+  schedule:
+    # Lunes 06:00 UTC. hugovk publica el ranking de PyPI el día 1 de cada mes.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh popular package lists
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run python scripts/fetch_popular.py
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          # Un PR abierto con GITHUB_TOKEN no dispara la CI. Con un token propio en
+          # POPULAR_PACKAGES_TOKEN (PAT o GitHub App) la CI corre sobre el PR.
+          token: ${{ secrets.POPULAR_PACKAGES_TOKEN || github.token }}
+          add-paths: data/popular/*.json
+          branch: chore/refresh-popular-packages
+          delete-branch: true
+          commit-message: "chore(data): refresh popular package lists"
+          title: "chore(data): refresh popular package lists"
+          body: |
+            Actualización semanal de `data/popular/` generada por `scripts/fetch_popular.py`.
+
+            Antes de aprobar, se revisa `source` y `published_at` en cada archivo y mira los
+            nombres que entraron a la lista: un paquete que sube al top solo porque
+            alguien infló sus descargas no debería servir de referencia para el
+            detector de typosquatting.
+
+            Las fuentes están descritas en `docs/adr/0004-popular-package-sources.md`.
