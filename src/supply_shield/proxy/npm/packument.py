@@ -2,12 +2,18 @@
 
 import base64
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 from urllib.parse import unquote
 
 import httpx
 
 from supply_shield.config import Settings
+from supply_shield.core.enums import Ecosystem
+from supply_shield.core.maintainer import Maintainer
+from supply_shield.core.package_ref import PackageRef
+from supply_shield.core.package_release import PackageRelease
+from supply_shield.core.upstream_metadata import UpstreamMetadata
 from supply_shield.proxy.upstream import upstream_get
 
 _NPM_REGISTRY = "https://registry.npmjs.org"
@@ -44,6 +50,65 @@ def integrity_to_hex(integrity: str) -> str:
         raw = base64.b64decode(integrity[len(_NPM_TARBALL_PREFIX) :])
         return raw.hex()
     return integrity.lower()
+
+
+def _parse_time(value: Any) -> datetime | None:
+    """Parsea una marca de tiempo ISO 8601 del packument; ``None`` si no es válida."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def to_upstream_metadata(packument: dict[str, Any]) -> UpstreamMetadata:
+    """Convierte un packument de npm al modelo común ``UpstreamMetadata``.
+
+    Extrae las versiones con su fecha de publicación (de ``time``), los scripts
+    de la versión ``latest`` y los mantenedores. Los detectores consumen este
+    modelo sin conocer el formato específico de npm.
+    """
+    name = packument.get("name", "")
+    versions_data = packument.get("versions", {})
+    time_data = packument.get("time", {}) if isinstance(packument.get("time"), dict) else {}
+    dist_tags = (
+        packument.get("dist-tags", {}) if isinstance(packument.get("dist-tags"), dict) else {}
+    )
+    latest_version = dist_tags.get("latest")
+
+    releases: list[PackageRelease] = []
+    for version_key, version_info in versions_data.items():
+        if not isinstance(version_info, dict):
+            continue
+        published_at = _parse_time(time_data.get(version_key))
+        releases.append(PackageRelease(version=version_key, published_at=published_at))
+
+    scripts: dict[str, str] = {}
+    if isinstance(latest_version, str) and latest_version in versions_data:
+        latest_info = versions_data[latest_version]
+        raw_scripts = latest_info.get("scripts", {}) if isinstance(latest_info, dict) else {}
+        if isinstance(raw_scripts, dict):
+            scripts = {
+                key: value
+                for key, value in raw_scripts.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+
+    maintainers: list[Maintainer] = []
+    for entry in packument.get("maintainers", []):
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str):
+            email = entry.get("email")
+            maintainers.append(
+                Maintainer(name=entry["name"], email=email if isinstance(email, str) else None),
+            )
+
+    return UpstreamMetadata(
+        package=PackageRef(ecosystem=Ecosystem.NPM, name=name),
+        versions=tuple(releases),
+        scripts=scripts,
+        maintainers=tuple(maintainers),
+    )
 
 
 async def fetch_packument(
