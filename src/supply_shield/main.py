@@ -1,4 +1,4 @@
-"""Application factory for the Supply-Shield service."""
+"""Fábrica de la aplicación del servicio Supply-Shield."""
 
 from fastapi import FastAPI
 
@@ -9,7 +9,7 @@ from supply_shield.logging import configure_logging
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    """Build the FastAPI application and register its routers."""
+    """Construye la aplicación FastAPI y registra sus routers."""
     configure_logging(settings or get_settings())
 
     app = FastAPI(title="Supply-Shield", version=__version__)

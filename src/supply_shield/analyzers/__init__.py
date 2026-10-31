@@ -1,1 +1,1 @@
-"""Package analyzers whose findings feed the policy engine."""
+"""Analizadores de paquetes cuyos hallazgos alimentan el motor de política."""

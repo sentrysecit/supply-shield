@@ -1,1 +1,1 @@
-"""HTTP routers exposed by the service itself (not proxied registry traffic)."""
+"""Routers HTTP del propio servicio, distintos del tráfico de registro que se proxea."""

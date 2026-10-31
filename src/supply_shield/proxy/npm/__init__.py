@@ -1,1 +1,1 @@
-"""npm registry mirror adapter (packuments and tarballs)."""
+"""Adaptador del espejo del registro npm (packuments y tarballs)."""
