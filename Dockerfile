@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/astral-sh/uv:0.12.23 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.5 AS uv
 
 # --- Builder: resolve and install the locked production dependencies ---
 FROM python:3.13-slim AS builder

@@ -1,4 +1,4 @@
-"""Liveness and readiness probes."""
+"""Sondas de vida y de preparación."""
 
 from typing import Literal
 
@@ -9,18 +9,18 @@ router = APIRouter(tags=["health"])
 
 
 class HealthStatus(BaseModel):
-    """Probe response body."""
+    """Cuerpo de la respuesta de una sonda."""
 
     status: Literal["ok"] = "ok"
 
 
 @router.get("/healthz")
 async def healthz() -> HealthStatus:
-    """Liveness: the process is up and serving requests."""
+    """Vida: el proceso está en marcha y atiende peticiones."""
     return HealthStatus()
 
 
 @router.get("/readyz")
 async def readyz() -> HealthStatus:
-    """Readiness: the service can take traffic. No external dependencies to check yet."""
+    """Preparación: el servicio puede recibir tráfico. Sin dependencias externas aún."""
     return HealthStatus()

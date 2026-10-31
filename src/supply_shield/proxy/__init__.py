@@ -1,1 +1,1 @@
-"""Registry adapters: one sub-package per upstream package ecosystem."""
+"""Adaptadores de registro: un subpaquete por cada ecosistema de origen."""

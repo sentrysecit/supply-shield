@@ -1,1 +1,1 @@
-"""Known-vulnerability lookup against OSV.dev."""
+"""Consulta de vulnerabilidades conocidas en OSV.dev."""

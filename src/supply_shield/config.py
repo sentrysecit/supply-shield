@@ -1,13 +1,14 @@
-"""Application settings, loaded from ``SUPPLY_SHIELD_*`` environment variables."""
+"""Ajustes de la aplicación, cargados desde variables de entorno ``SUPPLY_SHIELD_*``."""
 
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Runtime configuration; the single source of truth for every tunable."""
+    """Configuración de ejecución: única fuente de cada valor ajustable."""
 
     model_config = SettingsConfigDict(
         env_prefix="SUPPLY_SHIELD_",
@@ -19,8 +20,15 @@ class Settings(BaseSettings):
     environment: Literal["development", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
+    # In-memory cache. Findings live longer than metadata or decisions because
+    # advisory data changes on the order of hours, not minutes.
+    cache_max_entries: int = Field(default=1024, ge=1)
+    cache_metadata_ttl_seconds: int = Field(default=300, ge=1)
+    cache_findings_ttl_seconds: int = Field(default=21_600, ge=1)
+    cache_decisions_ttl_seconds: int = Field(default=300, ge=1)
+
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return the process-wide settings instance."""
+    """Devuelve la instancia de ajustes de todo el proceso."""
     return Settings()
