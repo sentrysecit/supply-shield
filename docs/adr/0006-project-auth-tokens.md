@@ -1,4 +1,4 @@
-# 0005. Autenticación por proyecto con tokens hasheados en YAML
+# 0006. Autenticación por proyecto con tokens hasheados en YAML
 
 - **Estado**: Aceptado
 - **Fecha**: 2026-10-31
