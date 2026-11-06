@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 from collections.abc import AsyncGenerator, Generator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -10,6 +11,8 @@ from fastapi import FastAPI
 
 from supply_shield.config import Settings
 from supply_shield.main import create_app
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
@@ -44,7 +47,7 @@ def live_server() -> Generator[str]:
             "--port",
             str(port),
         ],
-        cwd="/workspace",
+        cwd=REPO_ROOT,
     )
 
     url = f"http://127.0.0.1:{port}"
