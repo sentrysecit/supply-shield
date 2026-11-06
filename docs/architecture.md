@@ -2,7 +2,7 @@
 
 Supply-Shield se ubica entre los clientes de paquetes del equipo y los registros públicos. Funciona como **registry mirror**: los clientes lo usan como si fuera el registro (ver [ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)).
 
-> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`) y la caché en memoria. Los detectores, el proxy y la base de datos todavía no.
+> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria y la lista de paquetes populares (`data/popular/`) que usará el detector de typosquatting. Los detectores, el proxy y la base de datos todavía no.
 
 ## Vista de alto nivel
 

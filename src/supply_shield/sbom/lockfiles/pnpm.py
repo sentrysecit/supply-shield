@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from supply_shield.core import Ecosystem
 from supply_shield.sbom.lockfiles.base import (
