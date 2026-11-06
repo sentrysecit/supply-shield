@@ -1,6 +1,7 @@
 """Ajustes de la aplicación, cargados desde variables de entorno ``SUPPLY_SHIELD_*``."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -26,6 +27,9 @@ class Settings(BaseSettings):
     cache_metadata_ttl_seconds: int = Field(default=300, ge=1)
     cache_findings_ttl_seconds: int = Field(default=21_600, ge=1)
     cache_decisions_ttl_seconds: int = Field(default=300, ge=1)
+
+    # Project authentication: YAML file with project names and hashed tokens.
+    projects_file: Path = Field(default=Path("config/projects.yaml"))
 
     # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
     # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
