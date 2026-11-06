@@ -14,10 +14,11 @@ dependencies = [
     "cyclonedx-python-lib>=11.12.0",
     "fastapi>=0.143.0",
     "greenlet>=3.5.6",
-    "httpx>=0.28.1",
+    "httpx[http2]>=0.28.1",
     "packaging>=26.3",
     "prometheus-client>=0.26.0",
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0.3",
     "rapidfuzz>=3.14.6",
     "redis>=8.1.0",
     "sqlalchemy>=2.1.6",
@@ -26,7 +27,7 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.21,<0.10.0"]
+requires = ["uv_build>=0.9.21,<0.14.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -42,12 +43,13 @@ dev = [
     "pytest-cov>=7.1.0",
     "respx>=0.23.1",
     "ruff>=0.16.10",
+    "types-pyyaml>=6.0.12.20261030",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = [
@@ -72,14 +74,14 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "PLR2004"]
 "scripts/**" = ["T201"]
 
 [tool.mypy]
 python_version = "3.13"
 strict = true
 plugins = ["pydantic.mypy"]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
@@ -90,6 +92,7 @@ warn_required_dynamic_aliases = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+pythonpath = ["scripts"]
 addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
 markers = [
     "integration: tests that talk to real external services (deselect with -m \"not integration\")",
