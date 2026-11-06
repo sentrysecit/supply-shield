@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Project authentication: YAML file with project names and hashed tokens.
     projects_file: Path = Field(default=Path("config/projects.yaml"))
 
+    # Política de bloqueo (D4-3). Si el archivo no existe se usa la política de
+    # fábrica; si existe pero es inválido, la aplicación no arranca.
+    policy_file: Path = Field(default=Path("config/policy.yaml"))
+
     # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
     # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
     # como un array JSON, p. ej. SUPPLY_SHIELD_UPSTREAM_HOSTS='["registry.npmjs.org"]'.
