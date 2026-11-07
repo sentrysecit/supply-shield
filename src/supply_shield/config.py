@@ -2,9 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     # fábrica; si existe pero es inválido, la aplicación no arranca.
     policy_file: Path = Field(default=Path("config/policy.yaml"))
 
+    # Detector de typosquatting (D4-4). Sin las listas o con un archivo inválido, la
+    # aplicación no arranca. Los umbrales traducen el puntaje 0-1 a una severidad.
+    popular_packages_dir: Path = Field(default=Path("data/popular"))
+    typosquatting_allowlist_file: Path = Field(default=Path("data/typosquatting/allowlist.yaml"))
+    typosquatting_report_threshold: float = Field(default=0.60, ge=0, le=1)
+    typosquatting_medium_threshold: float = Field(default=0.70, ge=0, le=1)
+    typosquatting_high_threshold: float = Field(default=0.85, ge=0, le=1)
+    typosquatting_critical_threshold: float = Field(default=0.95, ge=0, le=1)
+
     # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
     # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
     # como un array JSON, p. ej. SUPPLY_SHIELD_UPSTREAM_HOSTS='["registry.npmjs.org"]'.
@@ -49,6 +58,19 @@ class Settings(BaseSettings):
     upstream_max_retries: int = Field(default=3, ge=0)
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
+
+    @model_validator(mode="after")
+    def _typosquatting_thresholds_ascend(self) -> Self:
+        thresholds = (
+            self.typosquatting_report_threshold,
+            self.typosquatting_medium_threshold,
+            self.typosquatting_high_threshold,
+            self.typosquatting_critical_threshold,
+        )
+        if list(thresholds) != sorted(thresholds):
+            msg = "typosquatting thresholds must satisfy report <= medium <= high <= critical"
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache

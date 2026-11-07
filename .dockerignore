@@ -4,5 +4,7 @@
 !uv.lock
 !README.md
 !src/
+!data/popular/
+!data/typosquatting/
 **/__pycache__/
 **/*.py[cod]
