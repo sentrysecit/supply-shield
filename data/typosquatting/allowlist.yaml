@@ -1,0 +1,24 @@
+# Nombres permitidos del detector de typosquatting (D4-4).
+#
+# Un nombre de esta lista nunca se marca como typosquatting, aunque se parezca a
+# un paquete popular. Úsala para parecidos legítimos que el detector confunde
+# (falsos positivos), no para silenciar un bloqueo puntual: para eso están las
+# excepciones de config/policy.yaml, que vencen.
+#
+# Cada entrada necesita el nombre normalizado y la razón. Normalizado significa:
+#   npm  -> en minúsculas, con el @scope si lo tiene (p. ej. "@acme/utils").
+#   pypi -> PEP 503: minúsculas y "-" como único separador ("Django_Foo" -> "django-foo").
+# Un nombre sin normalizar hace fallar el arranque, para que la entrada no quede
+# sin efecto sin que nadie lo note.
+#
+# Más detalles: docs/typosquatting.md.
+
+version: 1
+
+npm: []
+#  - name: preact
+#    reason: "Alternativa ligera a react, mantenida por otro equipo; no es una imitación."
+
+pypi: []
+#  - name: pyaml
+#    reason: "Envoltorio legítimo de PyYAML; un nombre distinto con el mismo tema."
