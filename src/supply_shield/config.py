@@ -59,18 +59,6 @@ class Settings(BaseSettings):
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
 
-    @model_validator(mode="after")
-    def _typosquatting_thresholds_ascend(self) -> Self:
-        thresholds = (
-            self.typosquatting_report_threshold,
-            self.typosquatting_medium_threshold,
-            self.typosquatting_high_threshold,
-            self.typosquatting_critical_threshold,
-        )
-        if list(thresholds) != sorted(thresholds):
-            msg = "typosquatting thresholds must satisfy report <= medium <= high <= critical"
-            raise ValueError(msg)
-        return self
     # Heuristic risk rules. Thresholds live here so they can be changed without
     # touching the rule implementations.
     heuristics_cooldown_days: int = Field(default=30, ge=1)
@@ -85,6 +73,19 @@ class Settings(BaseSettings):
 
     # Directorio para almacenamiento de artefactos direccionado por hash.
     artifacts_dir: str = Field(default=".artifacts")
+
+    @model_validator(mode="after")
+    def _typosquatting_thresholds_ascend(self) -> Self:
+        thresholds = (
+            self.typosquatting_report_threshold,
+            self.typosquatting_medium_threshold,
+            self.typosquatting_high_threshold,
+            self.typosquatting_critical_threshold,
+        )
+        if list(thresholds) != sorted(thresholds):
+            msg = "typosquatting thresholds must satisfy report <= medium <= high <= critical"
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache
