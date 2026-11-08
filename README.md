@@ -12,7 +12,7 @@ Funciona como **registry mirror**: los clientes apuntan `registry=` (en `.npmrc`
 
 ## Estado del proyecto
 
-🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria y las herramientas de calidad (hooks, CI y ADRs). El proxy, los analizadores y las políticas todavía no están implementados: no hay un endpoint que evalúe un paquete.
+🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)) y las herramientas de calidad (hooks, CI y ADRs). El proxy y los analizadores todavía no están implementados: no hay un endpoint que evalúe un paquete.
 
 ## Requisitos
 
@@ -135,8 +135,10 @@ supply-shield/
 ├── scripts/             # utilidades de mantenimiento (fetch_popular.py)
 ├── data/
 │   └── popular/         # top 5 000 de npm y PyPI para typosquatting
+├── config/            # projects.yaml (tokens) y policy.yaml (política de bloqueo)
 ├── docs/
 │   ├── architecture.md  # diagrama de alto nivel
+│   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
 ├── Dockerfile
@@ -153,6 +155,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): flujo de trabajo, convenciones de commits y Definition of Done.
 - [docs/architecture.md](docs/architecture.md): arquitectura de alto nivel.
+- [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
 - [AGENTS.md](AGENTS.md): guía para asistentes de código.
@@ -166,6 +169,7 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0001](docs/adr/0001-record-architecture-decisions.md) | Las decisiones importantes se registran así. |
 | [0002](docs/adr/0002-registry-mirror-instead-of-mitm-proxy.md) | Supply-Shield es un espejo de registro, no un proxy que intercepte HTTPS. |
 | [0003](docs/adr/0003-osv-severity-and-unknown.md) | Las vulnerabilidades salen de OSV.dev. La severidad usa CVSS v3, luego v4, luego GHSA, y si no hay dato usable queda `UNKNOWN`. Un aviso `MAL-` es siempre crítico. |
+| [0007](docs/adr/0007-policy-engine.md) | La política se escribe en YAML validado con Pydantic y se aplica con una función pura. Las excepciones exigen justificación, autor y vencimiento. |
 
 ## Licencia
 
