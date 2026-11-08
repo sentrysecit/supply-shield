@@ -59,6 +59,8 @@ class Project(BaseModel):
     model_config = FROZEN
     name: str = Field(min_length=1)
     token_hash: str = Field(min_length=1)
+    internal_scopes: tuple[str, ...] = ()
+    internal_names: tuple[str, ...] = ()
 
 
 class ProjectsFile(BaseModel):
