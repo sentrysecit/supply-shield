@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Project authentication: YAML file with project names and hashed tokens.
     projects_file: Path = Field(default=Path("config/projects.yaml"))
 
+    # Política de bloqueo (D4-3). Si el archivo no existe se usa la política de
+    # fábrica; si existe pero es inválido, la aplicación no arranca.
+    policy_file: Path = Field(default=Path("config/policy.yaml"))
+
     # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
     # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
     # como un array JSON, p. ej. SUPPLY_SHIELD_UPSTREAM_HOSTS='["registry.npmjs.org"]'.
@@ -45,6 +49,21 @@ class Settings(BaseSettings):
     upstream_max_retries: int = Field(default=3, ge=0)
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
+
+    # Heuristic risk rules. Thresholds live here so they can be changed without
+    # touching the rule implementations.
+    heuristics_cooldown_days: int = Field(default=30, ge=1)
+    heuristics_new_package_days: int = Field(default=90, ge=1)
+    heuristics_new_package_max_versions: int = Field(default=5, ge=1)
+
+    # Base de datos PostgreSQL y Redis.
+    database_url: str = Field(
+        default="postgresql+asyncpg://supply_shield:supply_shield@localhost:5432/supply_shield"
+    )
+    redis_url: str = Field(default="redis://localhost:6379/0")
+
+    # Directorio para almacenamiento de artefactos direccionado por hash.
+    artifacts_dir: str = Field(default=".artifacts")
 
 
 @lru_cache
