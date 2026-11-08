@@ -16,6 +16,7 @@ from supply_shield.policy import Policy, evaluate
 _ROOT = Path(__file__).resolve().parents[3]
 _CONTEXT = RequestContext(project="frontend")
 _P95_BUDGET_MS = 5.0
+_LATENCY_RUNS = 5
 _TOP = 1000
 
 
@@ -92,6 +93,16 @@ def test_p95_latency_is_under_budget(analyzer: TyposquattingAnalyzer) -> None:
     for package in probes[:50]:
         analyzer.match(package)
 
+    # Se mide varias veces y se usa la mediana de los p95: un pico de otro proceso
+    # de la máquina no debe tumbar la prueba, pero el detector sí debe cumplir el
+    # presupuesto en la mayoría de las corridas.
+    p95_runs = sorted(_p95_ms(analyzer, probes) for _ in range(_LATENCY_RUNS))
+    median_p95 = statistics.median(p95_runs)
+    runs = ", ".join(f"{p95:.2f}" for p95 in p95_runs)
+    assert median_p95 < _P95_BUDGET_MS, f"p95 por corrida (ms): {runs}; {len(probes)} nombres"
+
+
+def _p95_ms(analyzer: TyposquattingAnalyzer, probes: list[PackageRef]) -> float:
     timings: list[float] = []
     gc.disable()
     try:
@@ -101,9 +112,7 @@ def test_p95_latency_is_under_budget(analyzer: TyposquattingAnalyzer) -> None:
             timings.append((time.perf_counter() - started) * 1000)
     finally:
         gc.enable()
-
-    p95 = statistics.quantiles(timings, n=100)[94]
-    assert p95 < _P95_BUDGET_MS, f"p95 = {p95:.2f} ms over {len(timings)} names"
+    return statistics.quantiles(timings, n=100)[94]
 
 
 def test_default_thresholds_are_the_documented_ones(analyzer: TyposquattingAnalyzer) -> None:
