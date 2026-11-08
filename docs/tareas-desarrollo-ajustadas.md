@@ -1,6 +1,6 @@
 # Supply-Shield: tareas del MVP por desarrollador
 
-Equipo de 5 personas, **7 semanas** de desarrollo. 
+Equipo de 5 personas, **7 semanas** de desarrollo.
 
 ## Qué hace el MVP al terminar
 
