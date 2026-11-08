@@ -1,0 +1,15 @@
+# Proyectos y sus tokens de acceso.
+#
+# Los tokens se guardan como hash (pbkdf2-hmac-sha256), nunca en texto plano.
+# Para generar el hash de un token nuevo:
+#   uv run python -c "from supply_shield.api.auth import hash_token; print(hash_token('tu-token-secreto'))"
+#
+# Los tokens de abajo son ejemplos; reemplazalos en producción.
+#   frontend -> ss_frontend_example_token
+#   backend  -> ss_backend_example_token
+
+projects:
+  - name: "frontend"
+    token_hash: "pbkdf2_sha256$100000$269bd97fec20f8265e094ed42e4474ad$4322f138493c73fb045688e6ae1bf9d5d501366d52396bf86f642982d8e4c648"
+  - name: "backend"
+    token_hash: "pbkdf2_sha256$100000$9785ff754fbb34d5c80ce06a1d1dc68d$010013b60f2c4e3b9f672c59a6448071c183f5f883b7beb02b48b897c72b4c30"

@@ -42,7 +42,7 @@ Sin `make` (Windows), usa los equivalentes `uv run ...` listados en el [README](
 - Logs con `structlog`, nunca `print`.
 - Pruebas: unitarias en `tests/unit/` sin red (simula HTTP con `respx`); las que usan servicios reales van en `tests/integration/` con `@pytest.mark.integration`.
 - Dependencias: agrégalas con `uv add` / `uv add --dev` y explica por qué. No escribas versiones a mano.
-- Commits: Conventional Commits. No hagas commit directo en `main`.
+- Commits: Conventional Commits. No hagas commit directo en `main`. Sugiere un mensaje de commit al finalizar una implementación.
 - Las decisiones de arquitectura se registran como ADR en `docs/adr/`.
 
 ## Reglas que no se rompen

@@ -2,7 +2,7 @@
 
 Supply-Shield se ubica entre los clientes de paquetes del equipo y los registros públicos. Funciona como **registry mirror**: los clientes lo usan como si fuera el registro (ver [ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)).
 
-> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria y la lista de paquetes populares (`data/popular/`) que usará el detector de typosquatting. Los detectores, el proxy y la base de datos todavía no.
+> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria, la lista de paquetes populares (`data/popular/`) que usará el detector de typosquatting y el motor de políticas (`policy/`, ver [policy.md](policy.md)). Los detectores, el proxy y la base de datos todavía no.
 
 ## Vista de alto nivel
 
@@ -40,7 +40,7 @@ flowchart LR
 
 1. El cliente pide un paquete al proxy como si fuera el registro.
 2. El adaptador del ecosistema (`proxy/npm` o `proxy/pypi`) identifica el paquete y la versión.
-3. El motor de políticas (`policy/`) pide los hallazgos a los analizadores (`analyzers/`): vulnerabilidades conocidas en OSV.dev y similitud del nombre con paquetes populares.
+3. El motor de evaluación pide los hallazgos a los analizadores (`analyzers/`): vulnerabilidades conocidas en OSV.dev y similitud del nombre con paquetes populares. El motor de políticas (`policy/`) convierte esos hallazgos en una decisión según la regla, el proyecto y las excepciones vigentes.
 4. Los resultados se guardan en la caché (`cache/`) para no repetir consultas.
 5. Si la política lo permite, el proxy obtiene el recurso del registro upstream y lo devuelve **sin modificar sus bytes**. Si no, responde con un error que explica el bloqueo.
 6. Los paquetes servidos alimentan la generación de SBOMs (`sbom/`).
@@ -55,7 +55,7 @@ flowchart LR
 | `supply_shield.api`                  | Endpoints propios del servicio: `/healthz`, `/readyz`        |
 | `supply_shield.proxy`                | Adaptadores de registro para npm y PyPI                      |
 | `supply_shield.analyzers`            | Vulnerabilidades (OSV.dev) y typosquatting                   |
-| `supply_shield.policy`               | Decisión de permitir o bloquear                              |
+| `supply_shield.policy`               | Política en YAML y `evaluate()`: hallazgos → permitir, advertir o bloquear |
 | `supply_shield.core`                 | Modelos compartidos: paquete, hallazgo y decisión            |
 | `supply_shield.cache`                | Caché en memoria (LRU y TTL); Redis la puede reemplazar      |
 | `supply_shield.sbom`                 | SBOM en CycloneDX                                            |
