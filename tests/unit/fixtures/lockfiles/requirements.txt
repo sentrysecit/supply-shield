@@ -1,0 +1,4 @@
+requests==2.19.0 --hash=sha256:cc408268d0e21589bcc2b2c248e42932b8c4d112f499c12c92e99e2178a6134c
+certifi==2021.10.8 --hash=sha256:dd62bfb2c18a7e0105b9b7b58e0e0e7e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e
+# comment line
+-e git+https://github.com/example/editable.git#egg=editable
