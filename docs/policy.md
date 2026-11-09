@@ -33,7 +33,7 @@ Es la misma en el código (`DEFAULT_RULES`) y en `config/policy.yaml`; una prueb
 | --- | --- | --- | --- | --- |
 | `vulnerability` | D3-3, OSV.dev | `block` | `critical` | `warn` |
 | `known_malware` | D3-4, avisos `MAL-` | `block` | `low` | `block` |
-| `typosquatting` | D4-4 | `block` | `high` | `warn` |
+| `typosquatting` | D4-4 ([cómo puntúa](typosquatting.md#puntaje-y-severidad)) | `block` | `high` | `warn` |
 | `dependency_confusion` | D5-4 | `block` | `low` | `block` |
 | `cooldown` | D5-2 | `block` | `low` | `block` |
 | `install_scripts` | D5-2 | `warn` | `low` | `warn` |
@@ -44,7 +44,7 @@ Es la misma en el código (`DEFAULT_RULES`) y en `config/policy.yaml`; una prueb
 
 - **`vulnerability`: bloquear solo las críticas.** El MVP promete bloquear "paquetes con vulnerabilidades críticas". Las altas y medias son frecuentes en dependencias transitivas y muchas no son explotables en el contexto del proyecto; bloquearlas por defecto rompería builds sin un riesgo demostrado y empujaría a los equipos a saltarse el proxy. No desaparecen: quedan en la decisión y en el SBOM, y un proyecto puede bajar el umbral a `high`. `unknown` advierte, como recomienda el ADR 0003: un advisory sin puntaje no prueba un riesgo crítico, pero tampoco puede pasar en silencio.
 - **`known_malware`: bloquear siempre.** Un aviso `MAL-` describe un paquete publicado con intención maliciosa; no hay versión "poco grave". El umbral `low` y `unknown: block` hacen que cualquier hallazgo de esta regla bloquee, aunque el detector cambie cómo calcula la severidad.
-- **`typosquatting`: bloquear desde `high`.** El detector (D4-4) traduce su puntaje de similitud a una severidad. Los parecidos fuertes bloquean; los débiles solo se registran, porque un falso positivo bloquea un paquete legítimo. El umbral se recalibra con la medición de falsos positivos de D4-6. `unknown` advierte porque un puntaje que no se pudo calcular no es evidencia de ataque.
+- **`typosquatting`: bloquear desde `high`.** El detector (D4-4) traduce su puntaje de similitud a una severidad ([tabla](typosquatting.md#puntaje-y-severidad)). Los parecidos fuertes bloquean; los débiles solo se registran, porque un falso positivo bloquea un paquete legítimo. El umbral se recalibra con la medición de falsos positivos de D4-6. `unknown` advierte porque un puntaje que no se pudo calcular no es evidencia de ataque.
 - **`dependency_confusion`: bloquear siempre.** Pedir al registro público un nombre que la organización declaró interno es exactamente el ataque; D5-4 exige que se bloquee siempre.
 - **`cooldown`: bloquear.** Las versiones recién publicadas son la ventana en la que se cuelan las cuentas comprometidas (`event-stream`, `ua-parser-js`) antes de que exista un advisory. Bloquearlas unos días deja que el ecosistema las revise. Si un equipo necesita un parche urgente, pide una excepción por paquete y versión.
 - **`install_scripts` y `new_package`: advertir.** Son señales de riesgo, no de ataque: muchos paquetes legítimos (`esbuild`, `node-gyp`, `sharp`) usan scripts de instalación, y todo paquete fue nuevo alguna vez. Bloquearlos por defecto daría demasiados falsos positivos.
