@@ -37,6 +37,10 @@ RUN groupadd --system --gid 1001 app \
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Popular package lists and allowlist for the typosquatting detector (D4-4).
+# Owned by root so the app user can read them but never rewrite them.
+COPY data/popular ./data/popular
+COPY data/typosquatting ./data/typosquatting
 
 USER app
 EXPOSE 8000
