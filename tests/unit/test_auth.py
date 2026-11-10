@@ -212,3 +212,41 @@ async def test_token_not_in_logs(
     captured = capfd.readouterr()
     assert _TEST_TOKEN not in captured.out
     assert _TEST_TOKEN not in captured.err
+
+
+# --- is_token_hash / project_names (D4-5) ---
+
+
+def test_is_token_hash_accepts_what_hash_token_produces() -> None:
+    """Un hash recién generado tiene el formato válido."""
+    assert auth.is_token_hash(auth.hash_token("abc"))
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "ss_plain_token",
+        "pbkdf2_sha256$100000$abcd",
+        "sha256$100000$abcd$abcd",
+        "pbkdf2_sha256$0$abcd$abcd",
+        "pbkdf2_sha256$many$abcd$abcd",
+        "pbkdf2_sha256$100000$not-hex$abcd",
+        "pbkdf2_sha256$100000$$",
+    ],
+)
+def test_is_token_hash_rejects_anything_else(stored: str) -> None:
+    """Un token en claro o un hash malformado no pasan por hash."""
+    assert not auth.is_token_hash(stored)
+
+
+def test_yaml_store_lists_its_project_names() -> None:
+    """El almacén YAML expone los nombres de sus proyectos."""
+    store = auth.YamlTokenStore(
+        [
+            auth.Project(name="frontend", token_hash=auth.hash_token("a")),
+            auth.Project(name="backend", token_hash=auth.hash_token("b")),
+        ]
+    )
+
+    assert store.project_names() == frozenset({"frontend", "backend"})
+    assert isinstance(store, auth.ProjectCatalog)
