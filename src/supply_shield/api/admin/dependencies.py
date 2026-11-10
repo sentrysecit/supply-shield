@@ -8,6 +8,7 @@ from pydantic import BaseModel, SecretStr
 
 from supply_shield.api.auth import ProjectCatalog
 from supply_shield.core.model_config import FROZEN
+from supply_shield.db.project_tokens import ProjectTokenRepository
 from supply_shield.db.repository import AdminRepository
 from supply_shield.policy.holder import PolicyHolder
 
@@ -47,6 +48,19 @@ def get_policy_holder(request: Request) -> PolicyHolder:
 def get_admin_repository(request: Request) -> AdminRepository:
     """Repositorio de la API; 503 si la app arrancó sin base de datos para administración."""
     repository: AdminRepository | None = getattr(request.app.state, "admin_repository", None)
+    if repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La API de administración no tiene base de datos configurada.",
+        )
+    return repository
+
+
+def get_project_token_repository(request: Request) -> ProjectTokenRepository:
+    """Repositorio de tokens de proyecto; 503 si la app arrancó sin base de datos."""
+    repository: ProjectTokenRepository | None = getattr(
+        request.app.state, "project_token_repository", None
+    )
     if repository is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

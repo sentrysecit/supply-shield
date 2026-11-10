@@ -27,7 +27,12 @@ def _admin_routes(app: FastAPI) -> list[tuple[str, str]]:
     routes: list[tuple[str, str]] = []
     for path, operations in app.openapi()["paths"].items():
         if path.startswith("/api/v1/admin"):
-            concrete = path.replace("{sbom_id}", EXAMPLE_ID).replace("{exception_id}", EXAMPLE_ID)
+            concrete = (
+                path.replace("{sbom_id}", EXAMPLE_ID)
+                .replace("{exception_id}", EXAMPLE_ID)
+                .replace("{token_id}", EXAMPLE_ID)
+                .replace("{project}", "frontend")
+            )
             routes.extend((method.upper(), concrete) for method in operations)
     return routes
 
@@ -36,7 +41,7 @@ async def test_every_admin_route_rejects_a_request_without_token(
     admin_app: FastAPI, anonymous: httpx.AsyncClient
 ) -> None:
     routes = _admin_routes(admin_app)
-    assert len(routes) == 9
+    assert len(routes) == 13
 
     for method, path in routes:
         response = await anonymous.request(method, path, json={})

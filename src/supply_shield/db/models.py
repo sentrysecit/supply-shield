@@ -65,7 +65,13 @@ class Project(Base):
 
 
 class Token(Base):
-    """Token de acceso para un proyecto (guardado como hash)."""
+    """Token de acceso de un proyecto, creado por la API de administración.
+
+    Solo se guarda el hash. ``key_id`` es la parte pública del token
+    (``ssp_<key_id>_<secreto>``): es única y permite buscar el token sin probar el
+    hash contra todos. ``expires_at`` es el primer instante en que el token deja de
+    valer (``None`` = no vence). Revocar no borra la fila: queda quién, cuándo y por qué.
+    """
 
     __tablename__ = "tokens"
 
@@ -76,9 +82,15 @@ class Token(Base):
         nullable=False,
         index=True,
     )
+    key_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[CreatedAt]
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     project: Mapped[Project] = relationship(back_populates="tokens")
 

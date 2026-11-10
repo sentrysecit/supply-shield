@@ -5,12 +5,13 @@ Todo cuelga de ``/api/v1/admin``:
 - ``/decisions``: listar y filtrar las decisiones del proxy;
 - ``/sboms``: SBOMs por proyecto o build;
 - ``/exceptions``: crear, listar y revocar excepciones de política;
+- ``/projects/{project}/tokens``: crear, listar y revocar tokens de proyecto;
 - ``/policy``: ver la política activa y recargarla sin reiniciar.
 """
 
 from fastapi import APIRouter, Depends
 
-from supply_shield.api.admin import decisions, exceptions, policy, sboms
+from supply_shield.api.admin import decisions, exceptions, policy, project_tokens, sboms
 from supply_shield.api.admin.dependencies import AdminConfig
 from supply_shield.api.admin.schemas import ErrorDetail
 from supply_shield.api.admin.security import require_admin
@@ -29,6 +30,7 @@ router = APIRouter(
 router.include_router(decisions.router)
 router.include_router(sboms.router)
 router.include_router(exceptions.router)
+router.include_router(project_tokens.router)
 router.include_router(policy.router)
 
 __all__ = ["AdminConfig", "router"]

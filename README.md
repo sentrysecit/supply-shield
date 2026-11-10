@@ -133,7 +133,7 @@ supply-shield/
 ├── tests/
 │   ├── unit/            # pruebas rápidas, sin red
 │   └── integration/     # pruebas con marker "integration"
-├── scripts/             # utilidades: fetch_popular.py y create_admin_token.py
+├── scripts/             # utilidades: fetch_popular.py, create_admin_token.py y create_project_token.py
 ├── migrations/          # migraciones de Alembic
 ├── data/
 │   ├── popular/         # top 5 000 de npm y PyPI para typosquatting
@@ -142,7 +142,7 @@ supply-shield/
 ├── docs/
 │   ├── architecture.md  # diagrama de alto nivel
 │   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
-│   ├── admin-api.md     # API de administración: excepciones, recarga, decisiones y SBOMs
+│   ├── admin-api.md     # API de administración: excepciones, tokens, recarga, decisiones y SBOMs
 │   ├── typosquatting.md # cómo funciona el detector de typosquatting
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
@@ -161,7 +161,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 - [CONTRIBUTING.md](CONTRIBUTING.md): flujo de trabajo, convenciones de commits y Definition of Done.
 - [docs/architecture.md](docs/architecture.md): arquitectura de alto nivel.
 - [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
-- [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, recarga de la política, decisiones y SBOMs).
+- [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, tokens de proyecto, recarga de la política, decisiones y SBOMs).
 - [docs/typosquatting.md](docs/typosquatting.md): técnicas, puntaje y lista de permitidos del detector de typosquatting.
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
@@ -179,6 +179,7 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0007](docs/adr/0007-policy-engine.md) | La política se escribe en YAML validado con Pydantic y se aplica con una función pura. Las excepciones exigen justificación, autor y vencimiento. |
 | [0008](docs/adr/0008-typosquatting-detector.md) | El typosquatting se detecta con un puntaje combinado (Damerau-Levenshtein exacto, Jaro-Winkler, separadores, letras parecidas, afijos y `@scope`) contra los paquetes populares, que nunca se marcan. |
 | [0009](docs/adr/0009-admin-api.md) | La API de administración usa un token propio (hash pbkdf2, solo Bearer). Las excepciones se guardan en la base, se revocan sin borrarse y se aplican en la petición siguiente; la política se recarga sin reiniciar y un archivo inválido no reemplaza a la vigente. |
+| [0010](docs/adr/0010-project-tokens-admin-api.md) | Los tokens de proyecto se crean y revocan desde la API de administración con el formato `ssp_<key_id>_<secreto>`: el `key_id` público permite buscarlos sin probar todos los hashes. Se muestran una sola vez y revocar no borra. La autenticación del proxy todavía no los lee. |
 
 ## Licencia
 

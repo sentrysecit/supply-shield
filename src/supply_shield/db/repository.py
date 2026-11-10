@@ -35,11 +35,12 @@ Clock = Callable[[], datetime]
 JsonObject = dict[str, object]
 
 
-def _utc_now() -> datetime:
+def utc_now() -> datetime:
+    """Hora actual en UTC."""
     return datetime.now(UTC)
 
 
-def _as_utc(value: datetime) -> datetime:
+def as_utc(value: datetime) -> datetime:
     """Devuelve ``value`` en UTC; una fecha sin zona se toma como UTC (así la guarda SQLite)."""
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
@@ -267,7 +268,7 @@ class SqlAdminRepository:
         self,
         sessions: async_sessionmaker[AsyncSession],
         *,
-        clock: Clock = _utc_now,
+        clock: Clock = utc_now,
     ) -> None:
         self._sessions = sessions
         self._clock = clock
@@ -328,7 +329,7 @@ class SqlAdminRepository:
             session.add(row)
             await session.flush()
             summary = SbomSummary(
-                id=row.id, project=project, build_id=build_id, created_at=_as_utc(row.created_at)
+                id=row.id, project=project, build_id=build_id, created_at=as_utc(row.created_at)
             )
             await session.commit()
         return summary
@@ -353,7 +354,7 @@ class SqlAdminRepository:
         async with self._sessions() as session:
             rows = (await session.execute(statement)).all()
         return [
-            SbomSummary(id=sbom_id, project=name, build_id=build, created_at=_as_utc(created))
+            SbomSummary(id=sbom_id, project=name, build_id=build, created_at=as_utc(created))
             for sbom_id, name, build, created in rows
         ]
 
@@ -373,7 +374,7 @@ class SqlAdminRepository:
             id=row.id,
             project=project,
             build_id=row.build_id,
-            created_at=_as_utc(row.created_at),
+            created_at=as_utc(row.created_at),
             document=dict(row.sbom_json),
         )
 
@@ -487,30 +488,36 @@ class SqlAdminRepository:
     # Proyectos
 
     async def _ensure_project(self, name: str) -> UUID:
-        """Id del proyecto ``name``; crea la fila si todavía no existe.
+        return await ensure_project(self._sessions, name, clock=self._clock)
 
-        Los proyectos se definen en ``config/projects.yaml``; la base solo guarda
-        una fila por nombre para colgar de ella decisiones, SBOMs y excepciones.
-        """
-        lookup = select(models.Project.id).where(models.Project.name == name)
-        async with self._sessions() as session:
+
+async def ensure_project(
+    sessions: async_sessionmaker[AsyncSession], name: str, *, clock: Clock = utc_now
+) -> UUID:
+    """Id del proyecto ``name``; crea la fila si todavía no existe.
+
+    Los proyectos se definen en ``config/projects.yaml``; la base solo guarda una
+    fila por nombre para colgar de ella decisiones, SBOMs, excepciones y tokens.
+    """
+    lookup = select(models.Project.id).where(models.Project.name == name)
+    async with sessions() as session:
+        found = await session.scalar(lookup)
+        if found is not None:
+            return found
+        project = models.Project(name=name, created_at=clock())
+        session.add(project)
+        try:
+            await session.flush()
+            project_id = project.id
+            await session.commit()
+        except IntegrityError:
+            # Otra petición lo creó entre la consulta y el INSERT.
+            await session.rollback()
             found = await session.scalar(lookup)
-            if found is not None:
-                return found
-            project = models.Project(name=name, created_at=self._clock())
-            session.add(project)
-            try:
-                await session.flush()
-                project_id = project.id
-                await session.commit()
-            except IntegrityError:
-                # Otra petición lo creó entre la consulta y el INSERT.
-                await session.rollback()
-                found = await session.scalar(lookup)
-                if found is None:
-                    raise
-                return found
-            return project_id
+            if found is None:
+                raise
+            return found
+        return project_id
 
 
 def _filter_decisions(
@@ -533,9 +540,9 @@ def _filter_decisions(
     if query.degraded is not None:
         conditions.append(table.degraded.is_(query.degraded))
     if query.since is not None:
-        conditions.append(table.created_at >= _as_utc(query.since))
+        conditions.append(table.created_at >= as_utc(query.since))
     if query.until is not None:
-        conditions.append(table.created_at < _as_utc(query.until))
+        conditions.append(table.created_at < as_utc(query.until))
     return statement.where(*conditions)
 
 
@@ -558,7 +565,7 @@ def _decision_record(row: models.Decision, project: str) -> DecisionRecord:
         reasons=tuple(row.reasons),
         findings=tuple(Finding.model_validate(finding) for finding in findings),
         degraded=row.degraded,
-        created_at=_as_utc(row.created_at),
+        created_at=as_utc(row.created_at),
     )
 
 
@@ -579,8 +586,8 @@ def _exception_record(row: models.PolicyException, project: str | None) -> Excep
         justification=row.justification,
         author=row.author,
         expires=row.expires_on,
-        created_at=_as_utc(row.created_at),
-        revoked_at=None if row.revoked_at is None else _as_utc(row.revoked_at),
+        created_at=as_utc(row.created_at),
+        revoked_at=None if row.revoked_at is None else as_utc(row.revoked_at),
         revoked_by=row.revoked_by,
         revoke_reason=row.revoke_reason,
     )
