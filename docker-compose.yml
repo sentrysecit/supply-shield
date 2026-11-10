@@ -5,11 +5,23 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Inside the compose network the other services are reached by name
+      SUPPLY_SHIELD_DATABASE_URL: postgresql+asyncpg://supply_shield:supply_shield@db:5432/supply_shield
+      SUPPLY_SHIELD_REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Projects and policy are deployment configuration, mounted read-only: the
+      # admin API reloads config/policy.yaml from here without rebuilding the image.
+      - ./config:/app/config:ro
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
       interval: 10s
@@ -17,6 +29,22 @@ services:
       retries: 5
       start_period: 5s
     restart: unless-stopped
+
+  migrate:
+    # One-shot: applies the database migrations (alembic upgrade head) and exits.
+    # The app starts only after it succeeds.
+    image: supply-shield:dev
+    pull_policy: never # built by the app service
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SUPPLY_SHIELD_DATABASE_URL: postgresql+asyncpg://supply_shield:supply_shield@db:5432/supply_shield
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   db:
     image: postgres:16-alpine

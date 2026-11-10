@@ -34,7 +34,7 @@ La API de administración (D4-5) permite consultar lo que hizo el firewall y cam
    SUPPLY_SHIELD_ADMIN_TOKEN_HASH='pbkdf2_sha256$100000$...$...'
    ```
 
-3. Aplica las migraciones de la base: `uv run alembic upgrade head`.
+3. Aplica las migraciones de la base. Con `docker compose` (`make up`) lo hace solo el servicio `migrate` antes de arrancar la app. Fuera de Docker, corre `uv run alembic upgrade head`, que toma la base del entorno o del `.env`, igual que el servicio.
 
 Sin `SUPPLY_SHIELD_ADMIN_TOKEN_HASH`, la API responde **503**. Si el valor no tiene formato de hash (por ejemplo, pegaste el token en claro), **el servicio no arranca**.
 
@@ -59,7 +59,10 @@ export SS_ADMIN="ssa_..."   # el token, no el hash
 curl -H "Authorization: Bearer $SS_ADMIN" http://localhost:8000/api/v1/admin/policy
 ```
 
-**Recomendaciones de despliegue:** no publiques `/api/v1/admin` fuera de la red interna (filtra la ruta en el reverse proxy) y rota el token si sale de las personas que lo necesitan.
+**Recomendaciones de despliegue:**
+
+- No publicar `/api/v1/admin` fuera de la red interna (filtra la ruta en el reverse proxy).
+- Sirve el servicio solo por **HTTPS**: los tokens de administrador y de proyecto viajan en la cabecera `Authorization`, y en HTTP plano cualquiera en la red puede leerlos.
 
 ## Excepciones
 
@@ -182,7 +185,7 @@ Hoy nadie escribe todavía decisiones ni SBOMs en la base: lo harán el proxy (D
 
 ## Varias réplicas
 
-Cada proceso aplica al instante lo que crea o revoca él mismo y relee la base cada `SUPPLY_SHIELD_POLICY_EXCEPTIONS_REFRESH_SECONDS`. Con varias réplicas, un cambio llega a las demás en ese plazo. Si la base no responde, cada proceso se queda con las excepciones que ya tenía; si al arrancar no la encuentra, arranca solo con las del archivo (más estricto).
+Cada proceso aplica al instante lo que crea o revoca él mismo y relee la base cada `SUPPLY_SHIELD_POLICY_EXCEPTIONS_REFRESH_SECONDS`. Con varias réplicas, un cambio llega a las demás en ese plazo. Si la base no responde, cada proceso se queda con las excepciones que ya tenía; si al arrancar no la encuentra, arranca solo con las del archivo (más estricto). Cada lectura espera como mucho 5 s, así que una base que no contesta no demora el arranque del proxy.
 
 ## Errores
 
