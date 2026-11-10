@@ -1,7 +1,7 @@
 """Fixtures de la API de administración: app con token de admin y base SQLite temporal."""
 
 import hashlib
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -18,12 +18,13 @@ from structlog.typing import EventDict
 
 from supply_shield.api.admin import exceptions as admin_exceptions
 from supply_shield.api.admin import policy as admin_policy
+from supply_shield.api.admin import project_tokens as admin_project_tokens
 from supply_shield.api.admin import security
 from supply_shield.api.admin import sync as admin_sync
 from supply_shield.api.admin.dependencies import get_now
 from supply_shield.config import Settings
-from supply_shield.db import session as db_session
 from supply_shield.db.models import Base
+from supply_shield.db.project_tokens import SqlProjectTokenRepository
 from supply_shield.db.repository import SqlAdminRepository
 from supply_shield.main import create_app
 from supply_shield.policy.holder import PolicyHolder
@@ -88,6 +89,12 @@ def repository(sessions: async_sessionmaker[AsyncSession]) -> SqlAdminRepository
 
 
 @pytest.fixture
+def token_repository(sessions: async_sessionmaker[AsyncSession]) -> SqlProjectTokenRepository:
+    """Repositorio de tokens de proyecto sobre la base temporal, con un reloj determinista."""
+    return SqlProjectTokenRepository(sessions, clock=TickingClock())
+
+
+@pytest.fixture
 def policy_file(tmp_path: Path) -> Path:
     """Archivo de política mínimo y válido."""
     path = tmp_path / "policy.yaml"
@@ -130,10 +137,15 @@ def admin_settings(policy_file: Path, projects_file: Path) -> AdminSettingsFacto
 
 
 @pytest.fixture
-def admin_app(admin_settings: AdminSettingsFactory, repository: SqlAdminRepository) -> FastAPI:
+def admin_app(
+    admin_settings: AdminSettingsFactory,
+    repository: SqlAdminRepository,
+    token_repository: SqlProjectTokenRepository,
+) -> FastAPI:
     """App con la API de administración sobre la base temporal y el reloj fijo."""
     app = create_app(admin_settings())
     app.state.admin_repository = repository
+    app.state.project_token_repository = token_repository
     app.dependency_overrides[get_now] = lambda: NOW
     return app
 
@@ -180,18 +192,6 @@ def admin_logs(monkeypatch: pytest.MonkeyPatch) -> list[EventDict]:
     los que otra prueba ya usó; se reemplazan por uno que solo captura.
     """
     capture = LogCapture()
-    for module in (security, admin_policy, admin_exceptions, admin_sync):
+    for module in (security, admin_policy, admin_exceptions, admin_project_tokens, admin_sync):
         monkeypatch.setattr(module, "_logger", structlog.wrap_logger(None, processors=[capture]))
     return capture.entries
-
-
-@pytest.fixture(autouse=True)
-def _restore_database_state() -> Iterator[None]:
-    """Deja el motor global de ``supply_shield.db`` como estaba antes de la prueba.
-
-    ``create_app`` con la API habilitada llama a ``init_engine``, que guarda el motor
-    en un estado de módulo; sin esto, otras pruebas verían ese motor.
-    """
-    engine, factory = db_session._state.engine, db_session._state.session_factory
-    yield
-    db_session._state.engine, db_session._state.session_factory = engine, factory

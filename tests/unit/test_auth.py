@@ -1,6 +1,7 @@
 """Pruebas de la autenticación por proyecto."""
 
 import base64
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated
@@ -55,6 +56,25 @@ def test_hash_token_unique_salt() -> None:
 
 
 # --- _extract_token ---
+
+
+def test_issue_project_token_format_and_hash() -> None:
+    issued = auth.issue_project_token()
+    token = issued.token.get_secret_value()
+
+    assert re.fullmatch(r"ssp_[0-9a-f]{16}_[A-Za-z0-9_-]{43}", token)
+    assert token.startswith(f"{auth.PROJECT_TOKEN_PREFIX}{issued.key_id}_")
+    assert auth.is_token_hash(issued.token_hash)
+    assert auth.verify_token(token, issued.token_hash)
+    assert issued.hint == f"ssp_{issued.key_id}_…"
+    assert token not in repr(issued)
+
+
+def test_issue_project_token_is_random() -> None:
+    first, second = auth.issue_project_token(), auth.issue_project_token()
+
+    assert first.key_id != second.key_id
+    assert first.token.get_secret_value() != second.token.get_secret_value()
 
 
 def test_extract_bearer() -> None:

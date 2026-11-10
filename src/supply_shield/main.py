@@ -14,6 +14,7 @@ from supply_shield.api import admin, auth, health
 from supply_shield.api.admin.sync import refresh_loop, safe_refresh
 from supply_shield.config import Settings, get_settings
 from supply_shield.db import get_session_factory, init_engine
+from supply_shield.db.project_tokens import ProjectTokenRepository, SqlProjectTokenRepository
 from supply_shield.db.repository import AdminRepository, SqlAdminRepository
 from supply_shield.logging import configure_logging
 from supply_shield.policy import PolicyHolder, default_source, read_policy_file
@@ -135,13 +136,16 @@ def _init_admin(app: FastAPI, settings: Settings) -> None:
         refresh_seconds=settings.policy_exceptions_refresh_seconds,
     )
     repository: AdminRepository | None = None
+    project_tokens: ProjectTokenRepository | None = None
     if token_hash is None:
         _logger.warning("admin.disabled", reason="SUPPLY_SHIELD_ADMIN_TOKEN_HASH not set")
     else:
         init_engine(settings)
         repository = SqlAdminRepository(get_session_factory())
+        project_tokens = SqlProjectTokenRepository(get_session_factory())
         _logger.info("admin.enabled")
     app.state.admin_repository = repository
+    app.state.project_token_repository = project_tokens
 
 
 def _init_token_store(app: FastAPI, settings: Settings) -> None:

@@ -6,10 +6,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
+from supply_shield.api.auth import project_token_hint
 from supply_shield.core.enums import DecisionAction, Ecosystem
 from supply_shield.core.finding import Finding
 from supply_shield.core.model_config import FROZEN
 from supply_shield.core.package_ref import PackageRef
+from supply_shield.db.project_tokens import ProjectTokenRecord, ProjectTokenStatus
 from supply_shield.db.repository import (
     DecisionRecord,
     ExceptionRecord,
@@ -22,6 +24,7 @@ from supply_shield.policy.rules import Rule
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+TokenName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 _MAX_NAME = 255
 _MAX_VERSION = 100
@@ -215,6 +218,81 @@ class ExceptionView(BaseModel):
             revoked_by=record.revoked_by,
             revoke_reason=record.revoke_reason,
         )
+
+
+# --- Tokens de proyecto -------------------------------------------------------------
+
+
+class ProjectTokenCreate(BaseModel):
+    """Token de proyecto nuevo."""
+
+    model_config = FROZEN
+
+    name: TokenName = Field(
+        description="Para qué es el token, p. ej. `ci-github` o `laptop-ana`. Sirve para "
+        "reconocerlo al revocarlo."
+    )
+    created_by: ShortText = Field(description="Quién lo pide o aprueba.")
+    expires: date | None = Field(
+        default=None,
+        description="Último día en que vale, inclusive, en UTC. Vacío = no vence.",
+    )
+
+
+class ProjectTokenRevoke(BaseModel):
+    """Quién revoca un token y por qué."""
+
+    model_config = FROZEN
+
+    revoked_by: ShortText
+    reason: LongText
+
+
+class ProjectTokenView(BaseModel):
+    """Token de proyecto guardado, con su estado en el momento de la consulta.
+
+    Nunca incluye el token ni su hash. ``hint`` es la parte pública del token
+    (``ssp_<key_id>_…``): sirve para saber a qué registro corresponde un token.
+    """
+
+    id: UUID
+    project: str
+    name: str
+    key_id: str
+    hint: str
+    created_by: str
+    created_at: datetime
+    expires: date | None
+    status: ProjectTokenStatus
+    revoked_at: datetime | None
+    revoked_by: str | None
+    revoke_reason: str | None
+
+    @classmethod
+    def of(cls, record: ProjectTokenRecord, now: datetime) -> Self:
+        """Vista de un token guardado, con su estado en ``now``."""
+        return cls(
+            id=record.id,
+            project=record.project,
+            name=record.name,
+            key_id=record.key_id,
+            hint=project_token_hint(record.key_id),
+            created_by=record.created_by,
+            created_at=record.created_at,
+            expires=record.expires,
+            status=record.status(now),
+            revoked_at=record.revoked_at,
+            revoked_by=record.revoked_by,
+            revoke_reason=record.revoke_reason,
+        )
+
+
+class ProjectTokenCreated(ProjectTokenView):
+    """Token recién creado. ``token`` solo aparece en esta respuesta."""
+
+    token: str = Field(
+        description="El token completo. Guárdalo ahora: el servicio solo conserva su hash."
+    )
 
 
 # --- Política ------------------------------------------------------------------------

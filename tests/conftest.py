@@ -1,6 +1,6 @@
 """Fixtures compartidos de pytest."""
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import UTC, datetime
 
 import httpx
@@ -13,7 +13,22 @@ from supply_shield.analyzers.typosquatting import (
 )
 from supply_shield.config import Settings
 from supply_shield.core import Ecosystem
+from supply_shield.db import session as db_session
 from supply_shield.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def _restore_database_state() -> Iterator[None]:
+    """Deja el motor global de ``supply_shield.db`` como estaba antes de cada prueba.
+
+    ``create_app`` con la API de administración habilitada llama a ``init_engine``,
+    que guarda el motor en un estado de módulo. Sin esto, una prueba que arranca la
+    app con un ``.env`` que tiene ``SUPPLY_SHIELD_ADMIN_TOKEN_HASH`` (las e2e lo
+    leen) deja ese motor a las pruebas que vienen después.
+    """
+    engine, factory = db_session._state.engine, db_session._state.session_factory
+    yield
+    db_session._state.engine, db_session._state.session_factory = engine, factory
 
 
 @pytest.fixture

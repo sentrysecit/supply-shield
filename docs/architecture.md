@@ -53,8 +53,8 @@ flowchart LR
 | `supply_shield.config`               | `Settings`: única fuente de configuración (`SUPPLY_SHIELD_*`) |
 | `supply_shield.logging`              | Logs estructurados (JSON en producción, consola en desarrollo) |
 | `supply_shield.api`                  | Endpoints propios del servicio: `/healthz`, `/readyz` y autenticación por proyecto |
-| `supply_shield.api.admin`            | API de administración (`/api/v1/admin`): decisiones, SBOMs, excepciones y recarga de la política |
-| `supply_shield.db`                   | PostgreSQL con SQLAlchemy async y repositorio de la API de administración |
+| `supply_shield.api.admin`            | API de administración (`/api/v1/admin`): decisiones, SBOMs, excepciones, tokens de proyecto y recarga de la política |
+| `supply_shield.db`                   | PostgreSQL con SQLAlchemy async y repositorios de la API de administración |
 | `supply_shield.proxy`                | Adaptadores de registro para npm y PyPI                      |
 | `supply_shield.analyzers`            | Vulnerabilidades (OSV.dev) y typosquatting                   |
 | `supply_shield.policy`               | Política en YAML, `evaluate()` (hallazgos → permitir, advertir o bloquear) y `PolicyHolder` (política activa, recargable en caliente) |

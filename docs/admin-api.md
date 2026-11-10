@@ -11,6 +11,10 @@ La API de administración (D4-5) permite consultar lo que hizo el firewall y cam
 | `GET` | `/api/v1/admin/exceptions` | Lista las excepciones creadas por la API. |
 | `GET` | `/api/v1/admin/exceptions/{id}` | Muestra una excepción. |
 | `POST` | `/api/v1/admin/exceptions/{id}/revoke` | Revoca una excepción; vuelve a bloquear en la petición siguiente. |
+| `POST` | `/api/v1/admin/projects/{project}/tokens` | Crea un token de proyecto y lo muestra una sola vez. |
+| `GET` | `/api/v1/admin/projects/{project}/tokens` | Lista los tokens de un proyecto (sin el secreto). |
+| `GET` | `/api/v1/admin/projects/{project}/tokens/{id}` | Muestra un token de proyecto. |
+| `POST` | `/api/v1/admin/projects/{project}/tokens/{id}/revoke` | Revoca un token de proyecto. |
 | `GET` | `/api/v1/admin/policy` | Muestra la política activa, su origen y su sha256. |
 | `POST` | `/api/v1/admin/policy/reload` | Recarga `config/policy.yaml` sin reiniciar. |
 
@@ -104,6 +108,49 @@ Revocar **no borra** la excepción: queda con `status: revoked`, quién la revoc
 
 Este listado muestra solo las excepciones creadas por la API. Las del archivo de política aparecen en `GET /api/v1/admin/policy`.
 
+## Tokens de proyecto
+
+> **Importante:** la autenticación del proxy todavía lee solo `config/projects.yaml`. Los tokens que crea la API quedan guardados y se pueden revocar, pero **no abren el proxy** hasta que la autenticación lea la base (otro PR, ver el [ADR 0010](adr/0010-project-tokens-admin-api.md)).
+
+### Crear
+
+```bash
+curl -X POST http://localhost:8000/api/v1/admin/projects/frontend/tokens \
+  -H "Authorization: Bearer $SS_ADMIN" -H "Content-Type: application/json" \
+  -d '{"name": "ci-github", "created_by": "equipo-plataforma", "expires": "2027-02-01"}'
+```
+
+Responde **201** con el campo `token` (`ssp_<key_id>_<secreto>`). **Es la única vez que se muestra:** guárdalo como secreto del pipeline o en un gestor de secretos. El servicio guarda solo su hash; si se pierde, crea otro y revoca el anterior.
+
+| Campo | Qué es |
+| --- | --- |
+| `name` | Para qué es el token (`ci-github`, `laptop-ana`). Sirve para reconocerlo al revocarlo. |
+| `created_by` | Quién lo pide o aprueba. |
+| `expires` | Último día en que vale, inclusive, en UTC. Opcional (vacío = no vence), pero se recomienda ponerlo. No puede ser una fecha pasada. |
+
+El proyecto debe existir en `config/projects.yaml` (si no, **404**): ahí está su configuración, como los nombres internos.
+
+### Listar, ver y revocar
+
+```bash
+curl -H "Authorization: Bearer $SS_ADMIN" \
+  "http://localhost:8000/api/v1/admin/projects/frontend/tokens?status=active"
+
+curl -X POST http://localhost:8000/api/v1/admin/projects/frontend/tokens/<id>/revoke \
+  -H "Authorization: Bearer $SS_ADMIN" -H "Content-Type: application/json" \
+  -d '{"revoked_by": "ciso", "reason": "Apareció en un log público."}'
+```
+
+Los listados nunca muestran el token ni su hash. `hint` (`ssp_<key_id>_…`) es la parte pública del token: si encuentras un token filtrado, su `key_id` te dice qué registro revocar. Revocar no borra el registro y revocar dos veces da **409**. Un proyecto que ya no está en el YAML se puede listar y revocar igual.
+
+### Sin base de datos: el script
+
+```bash
+uv run python scripts/create_project_token.py frontend
+```
+
+Genera un token con el mismo formato e imprime la entrada para `config/projects.yaml`. Es la forma de crear tokens que el proxy acepta hoy. Si el proyecto ya existe, cambia solo su `token_hash` y reinicia el servicio.
+
 ## Política
 
 ```bash
@@ -142,7 +189,7 @@ Cada proceso aplica al instante lo que crea o revoca él mismo y relee la base c
 | Código | Cuándo |
 | --- | --- |
 | 401 | Falta el token de administrador o no es válido. |
-| 404 | No existe la excepción o el SBOM pedido. |
-| 409 | La excepción ya estaba revocada. |
+| 404 | No existe la excepción, el SBOM o el token pedido, o el proyecto no está en `config/projects.yaml` (al crear un token). |
+| 409 | La excepción o el token ya estaba revocado. |
 | 422 | Cuerpo o filtros inválidos, o archivo de política inválido al recargar. |
 | 503 | La API está deshabilitada (sin hash) o no tiene base de datos. |
