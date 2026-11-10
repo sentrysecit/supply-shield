@@ -50,8 +50,8 @@ Con `make`, los pasos 2 y 3 son `make install` y el paso 5 es `make run`.
 | `make cov`              | `uv run pytest --cov --cov-report=term-missing --cov-report=xml`              | Todas las pruebas con cobertura (mínimo 80 %)            |
 | `make security`         | `uv run bandit -c pyproject.toml -r src` y los dos comandos de auditoría (\*) | Análisis estático de seguridad y auditoría de dependencias |
 | `make check`            | `lint`, `typecheck`, `security` y `cov`, en ese orden                         | Todo lo que valida la CI                                 |
-| `make up`               | `docker compose up -d --build`                                                | Construye y levanta el contenedor                        |
-| `make down`             | `docker compose down`                                                         | Detiene el contenedor                                    |
+| `make up`               | `docker compose up -d --build`                                                | Construye la imagen, aplica las migraciones y levanta los servicios |
+| `make down`             | `docker compose down`                                                         | Detiene los servicios                                    |
 | `make clean`            | —                                                                             | Borra cachés y artefactos generados                      |
 
 (\*) Auditoría de las dependencias bloqueadas en `uv.lock`:
@@ -64,6 +64,15 @@ uv run pip-audit --requirement requirements-audit.txt --require-hashes --disable
 `requirements-audit.txt` es un archivo temporal ignorado por Git; la única fuente de verdad de las dependencias es `pyproject.toml` + `uv.lock`.
 
 > `make test-integration` termina con "no tests collected" (código 5) mientras `tests/integration/` siga vacío.
+
+**Base de datos.** Con `make up`, el servicio `migrate` del `docker compose` aplica las migraciones antes de arrancar la app, y la app usa la base y Redis del propio compose. Si corres la app fuera de Docker (`make run`), aplica las migraciones a mano cada vez que llegue una nueva a `migrations/versions/`:
+
+```bash
+docker compose up -d db
+uv run alembic upgrade head   # usa SUPPLY_SHIELD_DATABASE_URL del entorno o del .env, igual que la app
+```
+
+En `docker compose`, `config/` se monta en solo lectura: los cambios a `config/policy.yaml` se aplican con `POST /api/v1/admin/policy/reload`, sin reconstruir la imagen.
 
 Todos estos comandos se ejecutan desde la carpeta `supply-shield`.
 
