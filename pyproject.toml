@@ -32,6 +32,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "bandit>=1.9.4",
     "commitizen>=4.19.2",
     "jsonschema>=4.26.0",
