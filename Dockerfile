@@ -3,7 +3,7 @@
 FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 # --- Builder: resolve and install the locked production dependencies ---
-FROM python:3.13-slim AS builder
+FROM python:3.15-slim AS builder
 
 COPY --from=uv /uv /bin/uv
 
@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable
 
 # --- Runtime: only the interpreter and the virtual environment ---
-FROM python:3.13-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
