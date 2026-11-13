@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -19,10 +20,16 @@ from supply_shield.core.model_config import FROZEN
 from supply_shield.db import session as db_session
 from supply_shield.db.models import Build, Decision, Project, Sbom
 from supply_shield.policy import Policy, PolicyHolder
-from supply_shield.sbom.lockfiles import LockfileError, parse_lockfile
+from supply_shield.sbom.lockfiles import LockfileError, parse_named_lockfile
 from supply_shield.scan import PackageScanResult, ScanReport, scan_lockfile_entries
 
 _logger = structlog.get_logger(__name__)
+
+# Nombres de lockfile soportados. El nombre del usuario solo elige el parser:
+# nunca se usa para construir una ruta (path injection, ver ADR 0011).
+_SUPPORTED_LOCKFILE_NAME = re.compile(
+    r"^(package-lock[\w.-]*\.json|pnpm-lock\.yaml|requirements\.txt|poetry\.lock|uv\.lock)$"
+)
 
 router = APIRouter(prefix="/api/v1", tags=["scan"])
 
@@ -103,12 +110,17 @@ async def scan_lockfile(
 ) -> ScanResponse:
     """Escanea un lockfile recibido en el cuerpo y devuelve SBOM y decisiones."""
     safe_name = Path(filename).name
+    if not _SUPPORTED_LOCKFILE_NAME.fullmatch(safe_name):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"unsupported lockfile format: {filename}",
+        )
     tmp_dir = tempfile.mkdtemp(prefix="supply-shield-scan-")
     try:
-        lock_path = Path(tmp_dir) / safe_name
+        lock_path = Path(tmp_dir) / "lockfile"
         lock_path.write_bytes(body)
         try:
-            entries = parse_lockfile(lock_path)
+            entries = parse_named_lockfile(safe_name, lock_path)
         except LockfileError as error:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

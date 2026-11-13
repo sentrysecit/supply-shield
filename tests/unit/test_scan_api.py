@@ -88,6 +88,16 @@ async def test_scan_rejects_unsupported_lockfile(
     assert "unsupported lockfile format" in response.json()["detail"]
 
 
+async def test_scan_rejects_path_traversal_filename(
+    scan_client: tuple[httpx.AsyncClient, Any],
+) -> None:
+    """Un filename con separadores de ruta se rechaza con 400 antes de tocar disco."""
+    client, _ = scan_client
+    response = await _post(client, REQUIREMENTS, filename="../../etc/passwd")
+    assert response.status_code == 400
+    assert "unsupported lockfile format" in response.json()["detail"]
+
+
 async def test_scan_clean_lockfile(scan_client: tuple[httpx.AsyncClient, Any]) -> None:
     """Un lockfile limpio devuelve 200 con SBOM, decisiones y blocked=false."""
     client, _ = scan_client

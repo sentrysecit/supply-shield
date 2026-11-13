@@ -25,8 +25,10 @@ hallazgos como vulnerabilidades. La API (`api/scan.py`) y el CLI (`cli.py`) llam
 mismo pipeline; solo difieren en transporte y en persistencia.
 
 **API.** `POST /api/v1/scan?filename=<nombre>` recibe el lockfile crudo en el cuerpo
-(bytes), lo escribe en un archivo temporal con el nombre saneado (`Path(filename).name`,
-sin path traversal) y lo parsea con `parse_lockfile`; un `LockfileError` es 400. Requiere
+(bytes) y lo escribe en un archivo temporal de **nombre fijo**; el `filename` solo elige
+el parser, validado contra un allowlist estricto (`package-lock*.json`, `pnpm-lock.yaml`,
+`requirements.txt`, `poetry.lock`, `uv.lock`) — nunca entra en una ruta (path injection,
+detectado por CodeQL). Un nombre no soportado o un `LockfileError` es 400. Requiere
 token de proyecto (`get_request_context`, D2-1) y devuelve
 `{sbom, results, blocked, stored}`. El SBOM y las decisiones se guardan en la base de
 datos (get-or-create de `Project`, `Build` si viene `X-Build-Id`, filas `Sbom` y
