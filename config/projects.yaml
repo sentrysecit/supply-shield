@@ -1,8 +1,9 @@
 # Proyectos y sus tokens de acceso.
 #
 # Los tokens se guardan como hash (pbkdf2-hmac-sha256), nunca en texto plano.
-# Para generar el hash de un token nuevo:
-#   uv run python -c "from supply_shield.api.auth import hash_token; print(hash_token('tu-token-secreto'))"
+# Para generar un token nuevo y la entrada con su hash:
+#   uv run python scripts/create_project_token.py <proyecto>
+# (los tokens creados con la API de administración se guardan en la base; ver ADR 0010).
 #
 # Los tokens de abajo son ejemplos; reemplazalos en producción.
 #   frontend -> ss_frontend_example_token

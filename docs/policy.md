@@ -95,7 +95,11 @@ exceptions:
 
 Si se dan `package` y `advisory`, deben coincidir los dos. Una excepción solo cubre los hallazgos que coinciden: si el mismo paquete tiene otro advisory, ese sigue bloqueando.
 
-**Al vencer, deja de aplicarse sola**, sin reiniciar ni editar el archivo: el motor compara la fecha en cada evaluación. Recomendaciones:
+**Al vencer, deja de aplicarse sola**, sin reiniciar ni editar el archivo: el motor compara la fecha en cada evaluación.
+
+Las excepciones también se pueden crear, listar y revocar con la [API de administración](admin-api.md#excepciones), sin tocar el archivo ni reiniciar. Se guardan en la base, se suman a las del archivo y se aplican desde la petición siguiente. Esa vía exige además que la excepción no sea más amplia de lo necesario (ver la tabla en esa guía).
+
+Recomendaciones:
 
 - Acota siempre por `advisory` o por versión. Una excepción con solo el nombre del paquete cubre también el malware que aparezca mañana en él.
 - Usa vencimientos cortos (semanas, no años) y renueva con una nueva justificación.
@@ -113,6 +117,10 @@ La política se valida al arrancar. **Si el archivo existe y es inválido, el se
 
 La ruta del archivo se configura con `SUPPLY_SHIELD_POLICY_FILE` (por defecto `config/policy.yaml`).
 
+### Recargar sin reiniciar
+
+Después de editar el archivo, `POST /api/v1/admin/policy/reload` ([API de administración](admin-api.md#política)) lo vuelve a leer y validar. Si es inválido o no existe, responde 422 con el error y **la política anterior sigue activa**: un error de edición no deja al proxy sin reglas ni lo tumba. `GET /api/v1/admin/policy` muestra el sha256 del archivo cargado.
+
 ## Uso desde el código
 
 ```python
@@ -125,12 +133,10 @@ decision = evaluate(findings, context, policy, now=t)  # determinista
 
 - `evaluate` no hace E/S ni guarda estado. La única entrada implícita es el reloj; pasa `now` (con zona horaria) en pruebas.
 - `assess` devuelve el detalle por hallazgo (`FindingOutcome`: regla efectiva, modo, excepción aplicada o vencida), útil para métricas por regla y modo (D3-7) y para la auditoría.
-- La aplicación carga la política al arrancar en `app.state.policy`.
+- La aplicación carga la política al arrancar en `app.state.policy_holder` (`PolicyHolder`). La política efectiva, con las excepciones de la API, es `app.state.policy_holder.current`; `revision` sube con cada cambio y debe formar parte de la clave de las decisiones cacheadas (D3-6).
 - Un detector nuevo agrega su id a `supply_shield.policy.Rule` y su valor por defecto a `DEFAULT_RULES` (y a `config/policy.yaml`).
 
 ## Pendiente en otras tareas
 
 - **D3-5**: qué hacer cuando un detector falla (*fail-open* / *fail-closed*), configurable por regla en esta misma política, y la marca de decisión degradada.
 - **D3-6**: el motor de evaluación llama a `evaluate` con los hallazgos de todos los detectores y cachea la decisión.
-- **D4-5**: crear, listar y revocar excepciones y recargar la política sin reiniciar.
-- **D5-5**: guardar las excepciones en la base de datos.
