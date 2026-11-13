@@ -4,6 +4,10 @@ Cada proceso aplica al instante las excepciones que crea o revoca él mismo. Las
 crea o revoca otra réplica las ve en el siguiente refresco periódico. Si la base no
 responde, la política se queda con las excepciones que ya tenía: nunca se agregan
 excepciones que no se pudieron leer.
+
+Cada intento tiene un límite de tiempo. Sin él, una base que no contesta (en lugar
+de rechazar la conexión) haría esperar el arranque del servicio hasta que venciera
+la conexión (60 s con asyncpg) y retendría el candado de la política todo ese tiempo.
 """
 
 import asyncio
@@ -22,6 +26,9 @@ _logger = structlog.get_logger(__name__)
 EXPIRED_GRACE = timedelta(days=30)
 """Las excepciones vencidas siguen cargadas este tiempo para que el motor explique
 en el 403 que el paquete volvió a bloquearse porque su excepción venció."""
+
+REFRESH_TIMEOUT_SECONDS = 5.0
+"""Tiempo máximo de cada lectura de excepciones, también la del arranque."""
 
 
 async def refresh_policy_exceptions(
@@ -55,13 +62,27 @@ async def refresh_loop(
         await safe_refresh(holder, repository)
 
 
-async def safe_refresh(holder: PolicyHolder, repository: AdminRepository) -> bool:
+async def safe_refresh(
+    holder: PolicyHolder,
+    repository: AdminRepository,
+    *,
+    timeout_seconds: float | None = None,
+) -> bool:
     """Como ``refresh_policy_exceptions``, pero registra el error en vez de lanzarlo.
 
-    Un fallo de la base no debe tumbar el proceso ni el bucle de refresco.
+    Un fallo de la base no debe tumbar el proceso ni el bucle de refresco. Si la base
+    no contesta en ``timeout_seconds`` (por defecto ``REFRESH_TIMEOUT_SECONDS``), el
+    intento se abandona: la política se queda como estaba (sin excepciones nuevas,
+    que es lo más estricto) y el bucle reintenta.
     """
+    if timeout_seconds is None:
+        timeout_seconds = REFRESH_TIMEOUT_SECONDS
     try:
-        await refresh_policy_exceptions(holder, repository, today=datetime.now(UTC).date())
+        async with asyncio.timeout(timeout_seconds):
+            await refresh_policy_exceptions(holder, repository, today=datetime.now(UTC).date())
+    except TimeoutError:
+        _logger.warning("admin.exceptions_refresh_timeout", timeout_seconds=timeout_seconds)
+        return False
     except Exception:  # cualquier fallo de la base se registra y se reintenta
         _logger.exception("admin.exceptions_refresh_failed")
         return False
