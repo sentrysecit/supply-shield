@@ -9,8 +9,9 @@ import structlog
 from fastapi import FastAPI
 
 from supply_shield import __version__
+from supply_shield.analyzers.dependency_confusion.detector import DependencyConfusionAnalyzer
 from supply_shield.analyzers.typosquatting import SeverityThresholds, TyposquattingAnalyzer
-from supply_shield.api import admin, auth, health
+from supply_shield.api import admin, auth, health, scan
 from supply_shield.api.admin.sync import refresh_loop, safe_refresh
 from supply_shield.config import Settings, get_settings
 from supply_shield.db import get_session_factory, init_engine
@@ -31,10 +32,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Supply-Shield", version=__version__, lifespan=_lifespan)
     app.include_router(health.router)
     app.include_router(admin.router)
+    app.include_router(scan.router)
     _init_token_store(app, settings)
     _init_policy(app, settings)
     _init_admin(app, settings)
     _init_typosquatting(app, settings)
+    _init_analyzers(app, settings)
     return app
 
 
@@ -62,6 +65,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+
+
+def _init_analyzers(app: FastAPI, settings: Settings) -> None:
+    """Registra los analizadores disponibles para el escaneo (D5-6)."""
+    app.state.analyzers = (
+        app.state.typosquatting_analyzer,
+        DependencyConfusionAnalyzer(settings.projects_file),
+    )
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
