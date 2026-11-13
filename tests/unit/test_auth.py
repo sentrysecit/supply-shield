@@ -1,6 +1,7 @@
 """Pruebas de la autenticación por proyecto."""
 
 import base64
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated
@@ -55,6 +56,25 @@ def test_hash_token_unique_salt() -> None:
 
 
 # --- _extract_token ---
+
+
+def test_issue_project_token_format_and_hash() -> None:
+    issued = auth.issue_project_token()
+    token = issued.token.get_secret_value()
+
+    assert re.fullmatch(r"ssp_[0-9a-f]{16}_[A-Za-z0-9_-]{43}", token)
+    assert token.startswith(f"{auth.PROJECT_TOKEN_PREFIX}{issued.key_id}_")
+    assert auth.is_token_hash(issued.token_hash)
+    assert auth.verify_token(token, issued.token_hash)
+    assert issued.hint == f"ssp_{issued.key_id}_…"
+    assert token not in repr(issued)
+
+
+def test_issue_project_token_is_random() -> None:
+    first, second = auth.issue_project_token(), auth.issue_project_token()
+
+    assert first.key_id != second.key_id
+    assert first.token.get_secret_value() != second.token.get_secret_value()
 
 
 def test_extract_bearer() -> None:
@@ -212,3 +232,41 @@ async def test_token_not_in_logs(
     captured = capfd.readouterr()
     assert _TEST_TOKEN not in captured.out
     assert _TEST_TOKEN not in captured.err
+
+
+# --- is_token_hash / project_names (D4-5) ---
+
+
+def test_is_token_hash_accepts_what_hash_token_produces() -> None:
+    """Un hash recién generado tiene el formato válido."""
+    assert auth.is_token_hash(auth.hash_token("abc"))
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "ss_plain_token",
+        "pbkdf2_sha256$100000$abcd",
+        "sha256$100000$abcd$abcd",
+        "pbkdf2_sha256$0$abcd$abcd",
+        "pbkdf2_sha256$many$abcd$abcd",
+        "pbkdf2_sha256$100000$not-hex$abcd",
+        "pbkdf2_sha256$100000$$",
+    ],
+)
+def test_is_token_hash_rejects_anything_else(stored: str) -> None:
+    """Un token en claro o un hash malformado no pasan por hash."""
+    assert not auth.is_token_hash(stored)
+
+
+def test_yaml_store_lists_its_project_names() -> None:
+    """El almacén YAML expone los nombres de sus proyectos."""
+    store = auth.YamlTokenStore(
+        [
+            auth.Project(name="frontend", token_hash=auth.hash_token("a")),
+            auth.Project(name="backend", token_hash=auth.hash_token("b")),
+        ]
+    )
+
+    assert store.project_names() == frozenset({"frontend", "backend"})
+    assert isinstance(store, auth.ProjectCatalog)
