@@ -6,10 +6,20 @@ Tablas: proyectos, tokens, decisiones, sboms, builds, excepciones.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, ClassVar
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, func
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    create_engine,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -55,7 +65,13 @@ class Project(Base):
 
 
 class Token(Base):
-    """Token de acceso para un proyecto (guardado como hash)."""
+    """Token de acceso de un proyecto, creado por la API de administración.
+
+    Solo se guarda el hash. ``key_id`` es la parte pública del token
+    (``ssp_<key_id>_<secreto>``): es única y permite buscar el token sin probar el
+    hash contra todos. ``expires_at`` es el primer instante en que el token deja de
+    valer (``None`` = no vence). Revocar no borra la fila: queda quién, cuándo y por qué.
+    """
 
     __tablename__ = "tokens"
 
@@ -66,17 +82,28 @@ class Token(Base):
         nullable=False,
         index=True,
     )
+    key_id: Mapped[str] = mapped_column(String(32), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[CreatedAt]
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     project: Mapped[Project] = relationship(back_populates="tokens")
 
 
 class Decision(Base):
-    """Decisión de política para una versión de paquete en un proyecto."""
+    """Decisión de política para una versión de paquete en un proyecto.
+
+    ``findings`` guarda todos los hallazgos de la decisión (también los registrados
+    y los exceptuados) para que la auditoría pueda reconstruir por qué se decidió.
+    """
 
     __tablename__ = "decisions"
+    __table_args__ = (Index("ix_decisions_project_id_created_at", "project_id", "created_at"),)
 
     id: Mapped[UUID_PK]
     project_id: Mapped[uuid.UUID] = mapped_column(
@@ -88,8 +115,12 @@ class Decision(Base):
     package_ecosystem: Mapped[str] = mapped_column(String(20), nullable=False)
     package_name: Mapped[str] = mapped_column(String(255), nullable=False)
     package_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    build_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]")
+    findings: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default="[]"
+    )
     degraded: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[CreatedAt]
 
@@ -108,7 +139,7 @@ class Sbom(Base):
         nullable=False,
         index=True,
     )
-    build_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    build_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     sbom_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[CreatedAt]
 
@@ -135,27 +166,48 @@ class Build(Base):
 
 
 class PolicyException(Base):
-    """Excepción de política por paquete o advisory, con vencimiento."""
+    """Excepción de política creada por la API de administración (D4-5).
+
+    Tiene la misma forma que ``supply_shield.policy.PolicyException``: se acota por
+    paquete (con o sin versión), por advisory o por ambos, y opcionalmente por regla
+    y por proyecto (``project_id`` nulo = todos los proyectos). ``expires_on`` es el
+    último día en que rige, inclusive, en UTC. Revocar no borra la fila: queda con
+    quién, cuándo y por qué, para la auditoría.
+    """
 
     __tablename__ = "exceptions"
+    __table_args__ = (
+        CheckConstraint(
+            "package_name IS NOT NULL OR advisory_id IS NOT NULL",
+            name="ck_exceptions_has_target",
+        ),
+        CheckConstraint(
+            "(package_name IS NULL) = (package_ecosystem IS NULL)",
+            name="ck_exceptions_package_complete",
+        ),
+    )
 
     id: Mapped[UUID_PK]
-    project_id: Mapped[uuid.UUID] = mapped_column(
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
-    package_ecosystem: Mapped[str] = mapped_column(String(20), nullable=False)
-    package_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    package_ecosystem: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    package_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     package_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     advisory_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rule: Mapped[str | None] = mapped_column(String(50), nullable=True)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     author: Mapped[str] = mapped_column(String(255), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     created_at: Mapped[CreatedAt]
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    project: Mapped[Project] = relationship(back_populates="exceptions")
+    project: Mapped[Project | None] = relationship(back_populates="exceptions")
 
 
 def create_all_tables(settings: Settings) -> None:

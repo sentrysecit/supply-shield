@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     heuristics_cooldown_days: int = Field(default=30, ge=1)
     heuristics_new_package_days: int = Field(default=90, ge=1)
     heuristics_new_package_max_versions: int = Field(default=5, ge=1)
+
+    # API de administración (D4-5). El token se guarda como hash pbkdf2 (igual que los
+    # de proyecto, ver ``supply_shield.api.auth.hash_token``); sin hash, la API responde
+    # 503 y no se cargan excepciones de la base. Una excepción no puede durar más de
+    # ``admin_exception_max_days`` días, y cada proceso relee las excepciones de la
+    # base cada ``policy_exceptions_refresh_seconds`` segundos para ver las que
+    # crearon o revocaron otras réplicas.
+    admin_token_hash: SecretStr | None = None
+    admin_exception_max_days: int = Field(default=90, ge=1, le=365)
+    policy_exceptions_refresh_seconds: int = Field(default=30, ge=1)
 
     # Base de datos PostgreSQL y Redis.
     database_url: str = Field(

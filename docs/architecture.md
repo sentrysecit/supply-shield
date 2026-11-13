@@ -2,7 +2,7 @@
 
 Supply-Shield se ubica entre los clientes de paquetes del equipo y los registros públicos. Funciona como **registry mirror**: los clientes lo usan como si fuera el registro (ver [ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)).
 
-> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria, la lista de paquetes populares (`data/popular/`), el detector de typosquatting (`analyzers/typosquatting/`, ver [typosquatting.md](typosquatting.md)) y el motor de políticas (`policy/`, ver [policy.md](policy.md)). Los demás detectores, el motor de evaluación, el proxy y la base de datos todavía no.
+> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria, la lista de paquetes populares (`data/popular/`), el detector de typosquatting (`analyzers/typosquatting/`, ver [typosquatting.md](typosquatting.md)) el motor de políticas (`policy/`, ver [policy.md](policy.md)), la base de datos (`db/`) y la API de administración (`api/admin/`, ver [admin-api.md](admin-api.md)). Los demás detectores, el motor de evaluación y el proxy todavía no.
 
 ## Vista de alto nivel
 
@@ -52,10 +52,12 @@ flowchart LR
 | `supply_shield.main`                 | Factory `create_app()` y registro de routers                 |
 | `supply_shield.config`               | `Settings`: única fuente de configuración (`SUPPLY_SHIELD_*`) |
 | `supply_shield.logging`              | Logs estructurados (JSON en producción, consola en desarrollo) |
-| `supply_shield.api`                  | Endpoints propios del servicio: `/healthz`, `/readyz`        |
+| `supply_shield.api`                  | Endpoints propios del servicio: `/healthz`, `/readyz` y autenticación por proyecto |
+| `supply_shield.api.admin`            | API de administración (`/api/v1/admin`): decisiones, SBOMs, excepciones, tokens de proyecto y recarga de la política |
+| `supply_shield.db`                   | PostgreSQL con SQLAlchemy async y repositorios de la API de administración |
 | `supply_shield.proxy`                | Adaptadores de registro para npm y PyPI                      |
 | `supply_shield.analyzers`            | Vulnerabilidades (OSV.dev) y typosquatting                   |
-| `supply_shield.policy`               | Política en YAML y `evaluate()`: hallazgos → permitir, advertir o bloquear |
+| `supply_shield.policy`               | Política en YAML, `evaluate()` (hallazgos → permitir, advertir o bloquear) y `PolicyHolder` (política activa, recargable en caliente) |
 | `supply_shield.core`                 | Modelos compartidos: paquete, hallazgo y decisión            |
 | `supply_shield.cache`                | Caché en memoria (LRU y TTL); Redis la puede reemplazar      |
 | `supply_shield.sbom`                 | SBOM en CycloneDX                                            |
@@ -64,4 +66,4 @@ flowchart LR
 
 - **Integridad de artefactos**: el proxy nunca altera los bytes de un artefacto descargado.
 - **Configuración centralizada**: todo sale de `Settings`.
-- **Sin estado externo por ahora**: no hay bases de datos; se evaluarán en un ADR posterior.
+- **Estado externo mínimo**: PostgreSQL guarda decisiones, SBOMs y excepciones de la API ([ADR 0004](adr/0004-database-postgresql-sqlalchemy-alembic.md), [ADR 0009](adr/0009-admin-api.md)). Si la base no responde, el proxy sigue con la política del archivo, que solo puede ser más estricta.

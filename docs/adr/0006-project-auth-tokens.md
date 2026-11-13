@@ -24,5 +24,5 @@ El acceso a los tokens se abstrae tras el protocolo `TokenStore`, con implementa
 
 - La configuración del cliente es estándar: `.npmrc` con `registry` y `_authToken`, o `pip.conf` con `index-url`.
 - El token nunca se registra en logs: las entradas de log registran solo el nombre del proyecto.
-- Cambiar o revocar un token requiere editar el YAML y recargar. En la semana 4, esto pasa a la base de datos y se gestiona por la API de administración (D4-5).
+- Cambiar o revocar un token requiere editar el YAML y recargar. En la semana 4, esto pasa a la base de datos y se gestiona por la API de administración (D4-5). Ver [ADR 0010](0010-project-tokens-admin-api.md): la API ya crea y revoca tokens, pero la autenticación todavía no los lee.
 - La verificación recorre todos los proyectos (O(n) con pbkdf2 por cada uno); con pocos proyectos es despreciable, pero no escala a miles. La versión con base de datos indexará por hash.
