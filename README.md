@@ -12,7 +12,7 @@ Funciona como **registry mirror**: los clientes apuntan `registry=` (en `.npmrc`
 
 ## Estado del proyecto
 
-🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)) y las herramientas de calidad (hooks, CI y ADRs). El proxy y los demás analizadores todavía no están implementados: no hay un endpoint que evalúe un paquete.
+🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), la API de administración (`api/admin/`, ver [docs/admin-api.md](docs/admin-api.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)) y las herramientas de calidad (hooks, CI y ADRs). El proxy y los demás analizadores todavía no están implementados: no hay un endpoint que evalúe un paquete.
 
 ## Requisitos
 
@@ -50,8 +50,8 @@ Con `make`, los pasos 2 y 3 son `make install` y el paso 5 es `make run`.
 | `make cov`              | `uv run pytest --cov --cov-report=term-missing --cov-report=xml`              | Todas las pruebas con cobertura (mínimo 80 %)            |
 | `make security`         | `uv run bandit -c pyproject.toml -r src` y los dos comandos de auditoría (\*) | Análisis estático de seguridad y auditoría de dependencias |
 | `make check`            | `lint`, `typecheck`, `security` y `cov`, en ese orden                         | Todo lo que valida la CI                                 |
-| `make up`               | `docker compose up -d --build`                                                | Construye y levanta el contenedor                        |
-| `make down`             | `docker compose down`                                                         | Detiene el contenedor                                    |
+| `make up`               | `docker compose up -d --build`                                                | Construye la imagen, aplica las migraciones y levanta los servicios |
+| `make down`             | `docker compose down`                                                         | Detiene los servicios                                    |
 | `make clean`            | —                                                                             | Borra cachés y artefactos generados                      |
 
 (\*) Auditoría de las dependencias bloqueadas en `uv.lock`:
@@ -64,6 +64,15 @@ uv run pip-audit --requirement requirements-audit.txt --require-hashes --disable
 `requirements-audit.txt` es un archivo temporal ignorado por Git; la única fuente de verdad de las dependencias es `pyproject.toml` + `uv.lock`.
 
 > `make test-integration` termina con "no tests collected" (código 5) mientras `tests/integration/` siga vacío.
+
+**Base de datos.** Con `make up`, el servicio `migrate` del `docker compose` aplica las migraciones antes de arrancar la app, y la app usa la base y Redis del propio compose. Si corres la app fuera de Docker (`make run`), aplica las migraciones a mano cada vez que llegue una nueva a `migrations/versions/`:
+
+```bash
+docker compose up -d db
+uv run alembic upgrade head   # usa SUPPLY_SHIELD_DATABASE_URL del entorno o del .env, igual que la app
+```
+
+En `docker compose`, `config/` se monta en solo lectura: los cambios a `config/policy.yaml` se aplican con `POST /api/v1/admin/policy/reload`, sin reconstruir la imagen.
 
 Todos estos comandos se ejecutan desde la carpeta `supply-shield`.
 
@@ -122,7 +131,8 @@ supply-shield/
 │   ├── main.py          # factory create_app() de FastAPI
 │   ├── config.py        # Settings (variables SUPPLY_SHIELD_*)
 │   ├── logging.py       # configuración de structlog
-│   ├── api/             # endpoints propios del servicio (salud)
+│   ├── api/             # endpoints propios del servicio (salud, auth y admin/)
+│   ├── db/              # PostgreSQL: modelos, sesión y repositorio de la API de admin
 │   ├── core/            # modelos compartidos: paquete, hallazgo y decisión
 │   ├── cache/           # caché en memoria (LRU y tiempo de vida)
 │   ├── proxy/           # adaptadores de registro: npm/ y pypi/
@@ -132,7 +142,8 @@ supply-shield/
 ├── tests/
 │   ├── unit/            # pruebas rápidas, sin red
 │   └── integration/     # pruebas con marker "integration"
-├── scripts/             # utilidades de mantenimiento (fetch_popular.py)
+├── scripts/             # utilidades: fetch_popular.py, create_admin_token.py y create_project_token.py
+├── migrations/          # migraciones de Alembic
 ├── data/
 │   ├── popular/         # top 5 000 de npm y PyPI para typosquatting
 │   └── typosquatting/   # nombres parecidos permitidos (allowlist.yaml)
@@ -140,6 +151,7 @@ supply-shield/
 ├── docs/
 │   ├── architecture.md  # diagrama de alto nivel
 │   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
+│   ├── admin-api.md     # API de administración: excepciones, tokens, recarga, decisiones y SBOMs
 │   ├── typosquatting.md # cómo funciona el detector de typosquatting
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
@@ -158,6 +170,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 - [CONTRIBUTING.md](CONTRIBUTING.md): flujo de trabajo, convenciones de commits y Definition of Done.
 - [docs/architecture.md](docs/architecture.md): arquitectura de alto nivel.
 - [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
+- [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, tokens de proyecto, recarga de la política, decisiones y SBOMs).
 - [docs/typosquatting.md](docs/typosquatting.md): técnicas, puntaje y lista de permitidos del detector de typosquatting.
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
@@ -174,6 +187,8 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0003](docs/adr/0003-osv-severity-and-unknown.md) | Las vulnerabilidades salen de OSV.dev. La severidad usa CVSS v3, luego v4, luego GHSA, y si no hay dato usable queda `UNKNOWN`. Un aviso `MAL-` es siempre crítico. |
 | [0007](docs/adr/0007-policy-engine.md) | La política se escribe en YAML validado con Pydantic y se aplica con una función pura. Las excepciones exigen justificación, autor y vencimiento. |
 | [0008](docs/adr/0008-typosquatting-detector.md) | El typosquatting se detecta con un puntaje combinado (Damerau-Levenshtein exacto, Jaro-Winkler, separadores, letras parecidas, afijos y `@scope`) contra los paquetes populares, que nunca se marcan. |
+| [0009](docs/adr/0009-admin-api.md) | La API de administración usa un token propio (hash pbkdf2, solo Bearer). Las excepciones se guardan en la base, se revocan sin borrarse y se aplican en la petición siguiente; la política se recarga sin reiniciar y un archivo inválido no reemplaza a la vigente. |
+| [0010](docs/adr/0010-project-tokens-admin-api.md) | Los tokens de proyecto se crean y revocan desde la API de administración con el formato `ssp_<key_id>_<secreto>`: el `key_id` público permite buscarlos sin probar todos los hashes. Se muestran una sola vez y revocar no borra. La autenticación del proxy todavía no los lee. |
 | [0011](docs/adr/0011-popular-list-newcomer-quarantine.md) | Un nombre nuevo que imita a un paquete popular no entra a la lista popular hasta que se aprueba en la lista de permitidos. |
 
 ## Licencia

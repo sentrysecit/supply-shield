@@ -24,9 +24,13 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
-    """Obtiene la URL de base de datos de los ajustes."""
-    settings = Settings(_env_file=None)
-    return settings.database_url
+    """URL de la base, tomada de la misma configuración que usa el servicio.
+
+    Lee las variables ``SUPPLY_SHIELD_*`` y el ``.env``, igual que la app. Si leyera
+    solo el entorno, un ``.env`` con otra ``SUPPLY_SHIELD_DATABASE_URL`` haría que
+    las migraciones se aplicaran a una base distinta de la que usa el servicio.
+    """
+    return Settings().database_url
 
 
 def run_migrations_offline() -> None:

@@ -102,7 +102,7 @@ def test_app_loads_the_configured_policy(tmp_path: Path) -> None:
 
     app = create_app(Settings(_env_file=None, policy_file=path))
 
-    policy = app.state.policy
+    policy = app.state.policy_holder.current
     assert isinstance(policy, Policy)
     assert policy.rules[Rule.NEW_PACKAGE].mode is RuleMode.LOG
 
@@ -110,7 +110,8 @@ def test_app_loads_the_configured_policy(tmp_path: Path) -> None:
 def test_app_uses_the_factory_policy_when_the_file_is_missing(tmp_path: Path) -> None:
     app = create_app(Settings(_env_file=None, policy_file=tmp_path / "missing.yaml"))
 
-    assert app.state.policy == Policy()
+    assert app.state.policy_holder.current == Policy()
+    assert app.state.policy_holder.source.origin == "default"
 
 
 def test_app_refuses_to_start_with_an_invalid_policy(tmp_path: Path) -> None:
