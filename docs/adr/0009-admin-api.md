@@ -34,7 +34,7 @@ Esa API cambia lo que el firewall bloquea, así que es el punto más sensible de
 - Las excepciones creadas por la API se guardan en la tabla `exceptions` (migración `4c1e7a9d2b30`), con la misma forma que las del YAML: paquete y/o advisory, regla opcional, un proyecto opcional (vacío = todos), justificación, autor y vencimiento por **día** (UTC, inclusive). Las del YAML siguen funcionando igual y se suman.
 - **Revocar no borra**: guarda quién, cuándo y por qué. La auditoría conserva todo el historial.
 - Crear o revocar escribe en la base y actualiza el `PolicyHolder` **bajo el mismo candado** que el refresco periódico, para que un refresco que leyó la base antes de una revocación no pueda volver a publicar la excepción revocada.
-- Cada proceso relee las excepciones cada `SUPPLY_SHIELD_POLICY_EXCEPTIONS_REFRESH_SECONDS` (30 s por defecto) para ver lo que hicieron otras réplicas. Si la base no responde, se queda con lo que tenía: nunca agrega excepciones que no pudo leer, y una fila corrupta se descarta (eso solo vuelve más estricta la política).
+- Cada proceso relee las excepciones cada `SUPPLY_SHIELD_POLICY_EXCEPTIONS_REFRESH_SECONDS` (30 s por defecto) para ver lo que hicieron otras réplicas. Si la base no responde, se queda con lo que tenía: nunca agrega excepciones que no pudo leer, y una fila corrupta se descarta (eso solo vuelve más estricta la política). Cada lectura, también la del arranque, se abandona a los 5 s: una base que no contesta (en lugar de rechazar la conexión) no demora el arranque del proxy ni retiene el candado de la política.
 
 **Validación de excepciones (defensa contra excepciones demasiado amplias)**
 

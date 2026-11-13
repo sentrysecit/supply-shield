@@ -41,6 +41,10 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Owned by root so the app user can read them but never rewrite them.
 COPY data/popular ./data/popular
 COPY data/typosquatting ./data/typosquatting
+# Database migrations (D5-5): `alembic upgrade head` runs from this image, as the
+# one-shot "migrate" service in docker compose or as a deploy step. Also read-only.
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 USER app
 EXPOSE 8000

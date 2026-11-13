@@ -119,6 +119,48 @@ async def test_safe_refresh_keeps_the_current_exceptions_when_the_database_fails
     assert any(entry["event"] == "admin.exceptions_refresh_failed" for entry in admin_logs)
 
 
+class _HangingRepository(SqlAdminRepository):
+    """Base que acepta la conexión pero nunca contesta."""
+
+    def __init__(self) -> None:
+        pass
+
+    async def policy_exceptions(self, not_before: date) -> list[ExceptionRecord]:
+        await asyncio.sleep(3600)
+        return []
+
+
+async def test_safe_refresh_gives_up_when_the_database_does_not_answer(
+    holder: PolicyHolder, admin_logs: list[EventDict]
+) -> None:
+    exception_id = uuid4()
+    holder.put_exception(exception_id, _draft("CVE-1", TODAY).to_policy_exception())
+    revision = holder.revision
+
+    ok = await asyncio.wait_for(
+        sync.safe_refresh(holder, _HangingRepository(), timeout_seconds=0.01), timeout=5
+    )
+
+    assert ok is False
+    assert list(holder.dynamic_exceptions) == [exception_id]
+    assert holder.revision == revision
+    assert not holder.lock.locked()
+    events = [entry["event"] for entry in admin_logs]
+    assert "admin.exceptions_refresh_timeout" in events
+    assert "admin.exceptions_refresh_failed" not in events
+
+
+async def test_the_app_starts_even_if_the_database_does_not_answer(
+    admin_app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sync, "REFRESH_TIMEOUT_SECONDS", 0.01)
+    admin_app.state.admin_repository = _HangingRepository()
+    holder: PolicyHolder = admin_app.state.policy_holder
+
+    async with asyncio.timeout(5), admin_app.router.lifespan_context(admin_app):
+        assert holder.dynamic_exceptions == {}
+
+
 async def test_safe_refresh_reports_success(
     holder: PolicyHolder, repository: SqlAdminRepository
 ) -> None:
