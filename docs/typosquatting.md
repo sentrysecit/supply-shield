@@ -64,6 +64,17 @@ pypi: []
 
 - El nombre va **normalizado**: en npm, en minúsculas y con su `@scope`; en PyPI, según PEP 503 (`Django_Foo` → `django-foo`). Un nombre sin normalizar hace fallar el arranque y el error indica cómo escribirlo.
 - La lista es para falsos positivos permanentes. Para dejar pasar algo temporalmente, usa una excepción de la política, que vence ([policy.md](policy.md#excepciones)).
+- También es la forma de aprobar un nombre [en cuarentena](#cuarentena-de-entrantes-a-la-lista-popular).
+
+## Cuarentena de entrantes a la lista popular
+
+Un nombre de la lista popular nunca se marca, así que un typosquat que infle sus descargas hasta entrar al top quedaría exento. Para evitarlo, el refresco semanal (`scripts/fetch_popular.py`) compara cada nombre que **entra** con la lista anterior, usando este mismo detector:
+
+- Si el parecido alcanza para bloquear (`high` o `critical`), el nombre queda **en cuarentena**: no entra a la lista y el detector lo sigue marcando. Su lugar lo toma el siguiente del ranking.
+- El PR semanal y el resumen del job muestran cada nombre en cuarentena, a qué paquete se parece, el puntaje y las técnicas.
+- Si es legítimo, se agrega a la lista de permitidos por PR. El siguiente refresco lo admite. Si no lo es, no hay nada que hacer: sigue fuera.
+
+Los nombres que ya estaban en la lista no se revisan. Las razones y los límites están en el [ADR 0011](adr/0011-popular-list-newcomer-quarantine.md).
 
 ## Configuración y arranque
 

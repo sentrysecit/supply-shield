@@ -174,6 +174,7 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0003](docs/adr/0003-osv-severity-and-unknown.md) | Las vulnerabilidades salen de OSV.dev. La severidad usa CVSS v3, luego v4, luego GHSA, y si no hay dato usable queda `UNKNOWN`. Un aviso `MAL-` es siempre crítico. |
 | [0007](docs/adr/0007-policy-engine.md) | La política se escribe en YAML validado con Pydantic y se aplica con una función pura. Las excepciones exigen justificación, autor y vencimiento. |
 | [0008](docs/adr/0008-typosquatting-detector.md) | El typosquatting se detecta con un puntaje combinado (Damerau-Levenshtein exacto, Jaro-Winkler, separadores, letras parecidas, afijos y `@scope`) contra los paquetes populares, que nunca se marcan. |
+| [0011](docs/adr/0011-popular-list-newcomer-quarantine.md) | Un nombre nuevo que imita a un paquete popular no entra a la lista popular hasta que se aprueba en la lista de permitidos. |
 
 ## Licencia
 

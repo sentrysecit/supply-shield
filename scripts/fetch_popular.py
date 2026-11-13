@@ -10,8 +10,14 @@ Fuentes, elegidas en ``docs/adr/0004-popular-package-sources.md``:
 Una lista solo se reescribe si cambian sus nombres o su orden, así el job
 semanal abre un pull request solo cuando hay algo nuevo.
 
+Cada nombre que entra a una lista se compara con la lista anterior. El que imita a
+un paquete que ya era popular queda en cuarentena: no se escribe, y su lugar lo
+toma el siguiente del ranking (``docs/adr/0011-popular-list-newcomer-quarantine.md``).
+``--report`` deja el resultado en Markdown para el cuerpo del pull request.
+
 Uso:
     uv run python scripts/fetch_popular.py [--ecosystem npm|pypi] [--limit 5000]
+        [--report reporte.md]
 """
 
 import argparse
@@ -24,17 +30,24 @@ import tarfile
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import httpx
 import structlog
 from pydantic import BaseModel, Field, JsonValue, ValidationError
 
-from supply_shield.analyzers.typosquatting.popular import (
+from supply_shield.analyzers.typosquatting import (
+    NewcomerReview,
+    NewcomerShortfallError,
+    PopularIndex,
     PopularPackages,
     PopularPackagesSource,
+    SeverityThresholds,
+    admit_newcomers,
+    load_allowlist,
     load_popular_packages,
 )
-from supply_shield.config import get_settings
+from supply_shield.config import Settings, get_settings
 from supply_shield.core.enums import Ecosystem
 from supply_shield.core.naming import normalize_package_name
 from supply_shield.logging import configure_logging
@@ -52,9 +65,13 @@ USER_AGENT = "supply-shield/fetch-popular"
 HTTP_TIMEOUT_SECONDS = 60.0
 HTTP_RETRIES = 3
 
+# El cuerpo de un pull request admite 65 536 caracteres: el reporte se recorta antes.
+REPORT_MAX_HELD_ROWS = 100
+REPORT_MAX_ENTERED_NAMES = 300
+
 log = structlog.get_logger(__name__)
 
-Fetcher = Callable[[httpx.AsyncClient, int, datetime], Awaitable[PopularPackages]]
+Fetcher = Callable[[httpx.AsyncClient, datetime], Awaitable[PopularPackages]]
 
 
 class FetchError(Exception):
@@ -86,11 +103,12 @@ class _NpmPackument(BaseModel):
     time: dict[str, JsonValue]
 
 
-def rank_names(ecosystem: Ecosystem, names: Iterable[str], limit: int) -> tuple[str, ...]:
-    """Normaliza ``names`` en orden, quita duplicados e inválidos y conserva ``limit``.
+def rank_names(ecosystem: Ecosystem, names: Iterable[str]) -> tuple[str, ...]:
+    """Normaliza ``names`` en orden y quita duplicados e inválidos.
 
-    Lanza ``FetchError`` si la fuente no llega a ``limit`` nombres válidos, para que
-    una descarga truncada nunca reemplace una lista completa.
+    Devuelve todo el ranking de la fuente: el corte a los primeros N se hace después
+    de revisar los entrantes (``review_candidates``), para que el lugar de un nombre
+    en cuarentena lo tome el siguiente.
     """
     ranked: list[str] = []
     seen: set[str] = set()
@@ -104,10 +122,7 @@ def rank_names(ecosystem: Ecosystem, names: Iterable[str], limit: int) -> tuple[
             continue
         seen.add(name)
         ranked.append(name)
-        if len(ranked) == limit:
-            return tuple(ranked)
-    msg = f"{ecosystem.value} source has {len(ranked)} usable names, expected {limit}"
-    raise FetchError(msg)
+    return tuple(ranked)
 
 
 def parse_naive_utc(value: str) -> datetime:
@@ -175,8 +190,8 @@ def parse_js_string_array(source: str, export: str) -> list[str]:
     return [single or double for single, double in _JS_STRING.findall(body)]
 
 
-async def fetch_pypi(client: httpx.AsyncClient, limit: int, now: datetime) -> PopularPackages:
-    """Arma la lista de PyPI a partir del volcado mensual de top-pypi-packages."""
+async def fetch_pypi(client: httpx.AsyncClient, now: datetime) -> PopularPackages:
+    """Arma el ranking completo de PyPI a partir del volcado mensual de top-pypi-packages."""
     response = await client.get(PYPI_TOP_URL)
     response.raise_for_status()
     dump = _PypiDump.model_validate_json(response.content)
@@ -191,12 +206,12 @@ async def fetch_pypi(client: httpx.AsyncClient, limit: int, now: datetime) -> Po
             # El volcado trae la fecha sin zona; el generador corre en UTC.
             published_at=parse_naive_utc(dump.last_update),
         ),
-        packages=rank_names(Ecosystem.PYPI, (row.project for row in rows), limit),
+        packages=rank_names(Ecosystem.PYPI, (row.project for row in rows)),
     )
 
 
-async def fetch_npm(client: httpx.AsyncClient, limit: int, now: datetime) -> PopularPackages:
-    """Arma la lista de npm a partir de la última versión de ``npm-high-impact``."""
+async def fetch_npm(client: httpx.AsyncClient, now: datetime) -> PopularPackages:
+    """Arma el ranking completo de npm a partir de la última versión de ``npm-high-impact``."""
     response = await client.get(f"{NPM_REGISTRY}/{NPM_LIST_PACKAGE}")
     response.raise_for_status()
     packument = _NpmPackument.model_validate_json(response.content)
@@ -229,15 +244,15 @@ async def fetch_npm(client: httpx.AsyncClient, limit: int, now: datetime) -> Pop
             ranking="downloads, most downloaded first",
             published_at=parse_naive_utc(published),
         ),
-        packages=rank_names(Ecosystem.NPM, names, limit),
+        packages=rank_names(Ecosystem.NPM, names),
     )
 
 
 FETCHERS: dict[Ecosystem, Fetcher] = {Ecosystem.NPM: fetch_npm, Ecosystem.PYPI: fetch_pypi}
 
 
-async def fetch_all(ecosystems: Sequence[Ecosystem], limit: int) -> list[PopularPackages]:
-    """Descarga en paralelo cada lista pedida; cualquier fallo aborta toda la ejecución."""
+async def fetch_all(ecosystems: Sequence[Ecosystem]) -> list[PopularPackages]:
+    """Descarga en paralelo cada ranking pedido; cualquier fallo aborta toda la ejecución."""
     now = datetime.now(UTC).replace(microsecond=0)
     transport = httpx.AsyncHTTPTransport(retries=HTTP_RETRIES)
     async with httpx.AsyncClient(
@@ -248,7 +263,7 @@ async def fetch_all(ecosystems: Sequence[Ecosystem], limit: int) -> list[Popular
     ) as client:
         # Se espera a todas las descargas antes de cerrar el cliente, aunque alguna falle.
         results = await asyncio.gather(
-            *(FETCHERS[ecosystem](client, limit, now) for ecosystem in ecosystems),
+            *(FETCHERS[ecosystem](client, now) for ecosystem in ecosystems),
             return_exceptions=True,
         )
     lists: list[PopularPackages] = []
@@ -264,17 +279,73 @@ def output_path(output_dir: Path, ecosystem: Ecosystem) -> Path:
     return output_dir / f"{ecosystem.value}.json"
 
 
-def write_if_changed(popular: PopularPackages, path: Path) -> bool:
-    """Escribe ``popular`` salvo que ``path`` ya tenga el mismo ranking; indica si escribió."""
-    if path.exists():
-        try:
-            current = load_popular_packages(path)
-        except ValidationError:
-            log.warning("popular_file_invalid", path=str(path))
-        else:
-            if current.same_ranking(popular):
-                log.info("popular_list_unchanged", path=str(path))
-                return False
+class Refresh(NamedTuple):
+    """Lista nueva de un ecosistema, la que reemplaza y la revisión de sus entrantes."""
+
+    popular: PopularPackages
+    previous: PopularPackages | None
+    review: NewcomerReview
+    path: Path
+
+
+def read_previous(path: Path, ecosystem: Ecosystem) -> PopularPackages | None:
+    """Lista que ya está en ``path``; ``None`` si no existe o no se puede usar."""
+    if not path.exists():
+        return None
+    try:
+        previous = load_popular_packages(path)
+    except ValidationError:
+        log.warning("popular_file_invalid", path=str(path))
+        return None
+    if previous.ecosystem is not ecosystem:
+        log.warning("popular_file_wrong_ecosystem", path=str(path))
+        return None
+    return previous
+
+
+def review_candidates(
+    candidates: PopularPackages,
+    path: Path,
+    *,
+    limit: int,
+    allowed: frozenset[str],
+    thresholds: SeverityThresholds,
+) -> Refresh:
+    """Corta el ranking de la fuente a ``limit`` nombres, apartando la cuarentena.
+
+    Lanza ``FetchError`` si no quedan ``limit`` nombres, para que una descarga
+    truncada nunca reemplace una lista completa.
+    """
+    ecosystem = candidates.ecosystem
+    previous = read_previous(path, ecosystem)
+    try:
+        review = admit_newcomers(
+            candidates.packages,
+            None if previous is None else PopularIndex(previous),
+            limit=limit,
+            allowed=allowed,
+            thresholds=thresholds,
+        )
+    except NewcomerShortfallError as exc:
+        msg = f"{ecosystem.value} source is too short: {exc}"
+        raise FetchError(msg) from exc
+    if review.held:
+        log.warning(
+            "popular_newcomers_held",
+            ecosystem=ecosystem.value,
+            count=len(review.held),
+            names=[held.name for held in review.held[:REPORT_MAX_HELD_ROWS]],
+        )
+    popular = candidates.model_copy(update={"packages": review.packages})
+    return Refresh(popular=popular, previous=previous, review=review, path=path)
+
+
+def write_if_changed(refresh: Refresh) -> bool:
+    """Escribe la lista salvo que la anterior ya tenga el mismo ranking; indica si escribió."""
+    popular, path = refresh.popular, refresh.path
+    if refresh.previous is not None and refresh.previous.same_ranking(popular):
+        log.info("popular_list_unchanged", path=str(path))
+        return False
     path.parent.mkdir(parents=True, exist_ok=True)
     # LF y salto final para que el archivo pase los hooks de pre-commit en cualquier SO.
     path.write_text(popular.model_dump_json(indent=2) + "\n", encoding="utf-8", newline="\n")
@@ -285,6 +356,96 @@ def write_if_changed(popular: PopularPackages, path: Path) -> bool:
         source=popular.source.name,
     )
     return True
+
+
+_REPORT_INTRO = """\
+Actualización semanal de `data/popular/` generada por `scripts/fetch_popular.py`.
+
+Antes de aprobar, revisa `source` y `published_at` en cada archivo y mira los nombres
+que entraron a la lista: un paquete que sube al top solo porque alguien infló sus
+descargas no debería servir de referencia para el detector de typosquatting.
+
+Las fuentes están descritas en `docs/adr/0004-popular-package-sources.md`.
+
+## Revisión de entrantes
+
+Cada nombre que entra a una lista se compara con la lista anterior. Los que imitan a
+un paquete que ya era popular quedan **en cuarentena**: no entran a la lista y el
+detector los sigue marcando (`docs/adr/0011-popular-list-newcomer-quarantine.md`).
+"""
+
+_REPORT_APPROVAL = """\
+### Cómo aprobar un nombre en cuarentena
+
+Si es un paquete legítimo, agrégalo a `data/typosquatting/allowlist.yaml` con su razón
+en un PR aparte hacia `main`. El siguiente refresco lo admite. Si no lo es, no hagas
+nada: seguirá fuera de la lista.
+"""
+
+
+def _code(name: str) -> str:
+    # Los nombres ya están normalizados (letras, dígitos y ``-._~@/``): entre
+    # comillas invertidas no pueden abrir una tabla, un enlace ni una mención.
+    return f"`{name}`"
+
+
+def _report_section(refresh: Refresh) -> list[str]:
+    review = refresh.review
+    lines = [f"### {refresh.popular.ecosystem.value}", ""]
+    if refresh.previous is None:
+        lines += ["Primera generación: no hay lista anterior, así que no se revisan entrantes.", ""]
+        return lines
+    lines += [
+        f"Entran {len(review.entered)}, salen {len(review.left)}, "
+        f"en cuarentena {len(review.held)}.",
+        "",
+    ]
+    if review.held:
+        lines += [
+            "| En cuarentena | Puesto en la fuente | Se parece a | Puesto | Puntaje | Técnicas |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+        for held in review.held[:REPORT_MAX_HELD_ROWS]:
+            techniques = ", ".join(technique.value for technique in held.match.techniques)
+            lines.append(
+                f"| {_code(held.name)} | {held.source_rank} | {_code(held.match.target)} "
+                f"| {held.match.target_rank} | {held.match.score:.2f} | {techniques} |"
+            )
+        if len(review.held) > REPORT_MAX_HELD_ROWS:
+            lines += ["", f"… y {len(review.held) - REPORT_MAX_HELD_ROWS} más."]
+        lines.append("")
+    if review.entered:
+        shown = review.entered[:REPORT_MAX_ENTERED_NAMES]
+        rest = len(review.entered) - len(shown)
+        lines += [
+            f"<details><summary>Nombres que entran ({len(review.entered)})</summary>",
+            "",
+            ", ".join(_code(name) for name in shown) + (f" … y {rest} más." if rest else ""),
+            "",
+            "</details>",
+            "",
+        ]
+    return lines
+
+
+def render_report(refreshes: Sequence[Refresh]) -> str:
+    """Reporte en Markdown de los entrantes: es el cuerpo del pull request semanal."""
+    lines = [_REPORT_INTRO]
+    for refresh in refreshes:
+        lines += _report_section(refresh)
+    if any(refresh.review.held for refresh in refreshes):
+        lines.append(_REPORT_APPROVAL)
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def severity_thresholds(settings: Settings) -> SeverityThresholds:
+    """Umbrales del detector tal como los usa el servicio."""
+    return SeverityThresholds(
+        report=settings.typosquatting_report_threshold,
+        medium=settings.typosquatting_medium_threshold,
+        high=settings.typosquatting_high_threshold,
+        critical=settings.typosquatting_critical_threshold,
+    )
 
 
 def _positive_int(value: str) -> int:
@@ -316,26 +477,56 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         default=DEFAULT_OUTPUT_DIR,
         help="directory for the <ecosystem>.json files (default: data/popular)",
     )
+    parser.add_argument(
+        "--allowlist",
+        type=Path,
+        default=None,
+        help="typosquatting allowlist; its names skip the newcomer quarantine "
+        "(default: SUPPLY_SHIELD_TYPOSQUATTING_ALLOWLIST_FILE)",
+    )
+    parser.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="write the newcomer review as Markdown to this file",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Descarga las listas, escribe las que cambiaron y devuelve el código de salida."""
+    """Descarga los rankings, revisa los entrantes y escribe las listas que cambiaron.
+
+    Devuelve el código de salida. Los nombres en cuarentena no hacen fallar la
+    ejecución: la lista se escribe sin ellos y quedan en el reporte.
+    """
     args = parse_args(argv)
-    configure_logging(get_settings())
+    settings = get_settings()
+    configure_logging(settings)
     ecosystems = [Ecosystem(value) for value in args.ecosystem or [e.value for e in Ecosystem]]
+    allowlist_file: Path = args.allowlist or settings.typosquatting_allowlist_file
     try:
-        lists = asyncio.run(fetch_all(ecosystems, args.limit))
-    # ValidationError y UnicodeDecodeError son subclases de ValueError.
-    except (httpx.HTTPError, FetchError, ValueError) as exc:
+        # Sin la lista de permitidos no se sabe qué entrantes ya fueron aprobados.
+        allowlist = load_allowlist(allowlist_file)
+        refreshes = [
+            review_candidates(
+                candidates,
+                output_path(args.output_dir, candidates.ecosystem),
+                limit=args.limit,
+                allowed=allowlist.names(candidates.ecosystem),
+                thresholds=severity_thresholds(settings),
+            )
+            for candidates in asyncio.run(fetch_all(ecosystems))
+        ]
+    # ValidationError, AllowlistLoadError y UnicodeDecodeError son subclases de ValueError.
+    except (httpx.HTTPError, FetchError, OSError, ValueError) as exc:
         log.error("popular_fetch_failed", error=str(exc), error_type=type(exc).__name__)
         return 1
-    changed = [
-        str(path)
-        for popular in lists
-        if write_if_changed(popular, path := output_path(args.output_dir, popular.ecosystem))
-    ]
-    log.info("popular_fetch_done", changed=changed)
+    changed = [str(refresh.path) for refresh in refreshes if write_if_changed(refresh)]
+    if args.report is not None:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(render_report(refreshes), encoding="utf-8", newline="\n")
+    held = sum(len(refresh.review.held) for refresh in refreshes)
+    log.info("popular_fetch_done", changed=changed, held=held)
     return 0
 
 
