@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -46,7 +46,7 @@ def _patched(analyzer: object) -> dict[str, Any]:
     return {
         "get_settings": lambda: Settings(_env_file=None),
         "build_analyzers": lambda settings: (analyzer,),
-        "build_policy": lambda settings: Policy(),
+        "build_policy": AsyncMock(return_value=Policy()),
     }
 
 

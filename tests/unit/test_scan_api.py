@@ -98,6 +98,48 @@ async def test_scan_rejects_path_traversal_filename(
     assert "unsupported lockfile format" in response.json()["detail"]
 
 
+async def test_scan_rejects_too_long_build_id(
+    scan_client: tuple[httpx.AsyncClient, Any],
+) -> None:
+    """Un X-Build-Id de más de 255 caracteres responde 400 en vez de fallar en la BD."""
+    client, _ = scan_client
+    response = await client.post(
+        "/api/v1/scan",
+        params={"filename": "requirements.txt"},
+        content=REQUIREMENTS,
+        headers={"Authorization": f"Bearer {TOKEN}", "X-Build-Id": "x" * 300},
+    )
+    assert response.status_code == 400
+    assert "too long" in response.json()["detail"]
+
+
+async def test_scan_db_failure_still_returns_report(
+    scan_client: tuple[httpx.AsyncClient, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si la sesión de BD falla, el escaneo responde 200 con stored=false (nunca 500)."""
+    client, _ = scan_client
+
+    class _FailSession:
+        async def __aenter__(self) -> None:
+            msg = "db down"
+            raise RuntimeError(msg)
+
+        async def __aexit__(self, *args: object) -> bool:
+            return False
+
+    class _FailFactory:
+        def __call__(self) -> _FailSession:
+            return _FailSession()
+
+    monkeypatch.setattr("supply_shield.api.scan.db_session.get_session_factory", _FailFactory)
+    response = await _post(client, REQUIREMENTS)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["stored"] is False
+    assert data["blocked"] is False
+    assert len(data["results"]) == 2
+
+
 async def test_scan_clean_lockfile(scan_client: tuple[httpx.AsyncClient, Any]) -> None:
     """Un lockfile limpio devuelve 200 con SBOM, decisiones y blocked=false."""
     client, _ = scan_client

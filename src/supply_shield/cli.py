@@ -10,39 +10,86 @@ import argparse
 import asyncio
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 import structlog
+from pydantic import ValidationError
 
 from supply_shield import __version__
-from supply_shield.analyzers.dependency_confusion.detector import DependencyConfusionAnalyzer
 from supply_shield.analyzers.typosquatting import SeverityThresholds, TyposquattingAnalyzer
+from supply_shield.api.admin.sync import EXPIRED_GRACE
 from supply_shield.config import Settings, get_settings
 from supply_shield.core import Analyzer, RequestContext
+from supply_shield.db import session as db_session
+from supply_shield.db.repository import SqlAdminRepository
 from supply_shield.logging import configure_logging
-from supply_shield.policy import Policy, load_policy
+from supply_shield.policy import (
+    Policy,
+    PolicyException,
+    PolicyHolder,
+    default_source,
+    read_policy_file,
+)
 from supply_shield.sbom.lockfiles import LockfileError, parse_lockfile
 from supply_shield.scan import ScanReport, scan_lockfile_entries
 
 _logger = structlog.get_logger(__name__)
 
+_DB_EXCEPTIONS_TIMEOUT_SECONDS = 5.0
 
-def build_policy(settings: Settings) -> Policy:
-    """Carga la política del archivo configurado; si no existe, usa la de fábrica."""
+
+async def build_policy(settings: Settings) -> Policy:
+    """Política efectiva del escaneo: la del archivo más las excepciones de la BD.
+
+    Igual que el proxy y ``POST /api/v1/scan`` (que leen ``PolicyHolder.current``):
+    si la base es alcanzable, las excepciones aprobadas por la API de administración
+    también aplican al escaneo en CLI. Si la base no responde, se usa solo la del
+    archivo y se deja constancia en el log.
+    """
     try:
-        return load_policy(settings.policy_file)
+        base, source = read_policy_file(settings.policy_file)
     except FileNotFoundError:
         _logger.warning("policy.file_missing", path=str(settings.policy_file))
-        return Policy()
+        base, source = Policy(), default_source(settings.policy_file)
+    holder = PolicyHolder(base, source)
+    try:
+        exceptions = await asyncio.wait_for(
+            _load_db_exceptions(settings), timeout=_DB_EXCEPTIONS_TIMEOUT_SECONDS
+        )
+    except Exception:
+        _logger.warning("cli.db_exceptions_unavailable", exc_info=True)
+        return holder.current
+    if exceptions:
+        holder.replace_dynamic(exceptions)
+        _logger.info("cli.db_exceptions_loaded", count=len(exceptions))
+    return holder.current
+
+
+async def _load_db_exceptions(settings: Settings) -> dict[UUID, PolicyException]:
+    """Lee las excepciones vigentes de la base; cualquier fallo propaga al llamador."""
+    db_session.init_engine(settings)
+    repository = SqlAdminRepository(db_session.get_session_factory())
+    not_before = (datetime.now(UTC) - EXPIRED_GRACE).date()
+    records = await repository.policy_exceptions(not_before)
+    loaded: dict[UUID, PolicyException] = {}
+    for record in records:
+        try:
+            loaded[record.id] = record.to_policy_exception()
+        except ValidationError:
+            _logger.error("cli.exception_invalid_row", exception_id=str(record.id))
+    return loaded
 
 
 def build_analyzers(settings: Settings) -> tuple[Analyzer, ...]:
-    """Construye los analizadores disponibles localmente para el escaneo.
+    """Analizadores disponibles para escanear un lockfile.
 
-    Si falta una fuente de datos (listas de paquetes populares o archivo de
-    proyectos), el escaneo sigue sin ese detector y deja constancia en el log.
+    Solo typosquatting: dependency confusion se decide en el proxy en el momento de
+    la resolución (un nombre interno pedido al registro público); un lockfile ya
+    resolvió sus URLs, así que marcar nombres internos ahí sería falso positivo
+    (ADR 0011). Las heurísticas y OSV llegan con sus fuentes de metadata.
     """
-    analyzers: list[Analyzer] = []
     try:
         thresholds = SeverityThresholds(
             report=settings.typosquatting_report_threshold,
@@ -50,12 +97,12 @@ def build_analyzers(settings: Settings) -> tuple[Analyzer, ...]:
             high=settings.typosquatting_high_threshold,
             critical=settings.typosquatting_critical_threshold,
         )
-        analyzers.append(
+        return (
             TyposquattingAnalyzer.from_files(
                 settings.popular_packages_dir,
                 settings.typosquatting_allowlist_file,
                 thresholds=thresholds,
-            )
+            ),
         )
     except Exception:
         _logger.warning(
@@ -63,29 +110,28 @@ def build_analyzers(settings: Settings) -> tuple[Analyzer, ...]:
             popular_dir=str(settings.popular_packages_dir),
             exc_info=True,
         )
-    if settings.projects_file.exists():
-        analyzers.append(DependencyConfusionAnalyzer(settings.projects_file))
-    else:
-        _logger.warning("cli.projects_file_missing", path=str(settings.projects_file))
-    return tuple(analyzers)
+        return ()
 
 
-def run_scan(lockfile: Path, *, project: str, settings: Settings) -> ScanReport:
-    """Parsea el lockfile y lo evalúa con el pipeline compartido de escaneo."""
+async def _run_scan_async(lockfile: Path, *, project: str, settings: Settings) -> ScanReport:
     entries = parse_lockfile(lockfile)
     context = RequestContext(
         project=project,
         build_id=None,
         client=f"supply-shield-cli/{__version__}",
     )
-    return asyncio.run(
-        scan_lockfile_entries(
-            entries,
-            context=context,
-            policy=build_policy(settings),
-            analyzers=build_analyzers(settings),
-        )
+    policy = await build_policy(settings)
+    return await scan_lockfile_entries(
+        entries,
+        context=context,
+        policy=policy,
+        analyzers=build_analyzers(settings),
     )
+
+
+def run_scan(lockfile: Path, *, project: str, settings: Settings) -> ScanReport:
+    """Parsea el lockfile y lo evalúa con el pipeline compartido de escaneo."""
+    return asyncio.run(_run_scan_async(lockfile, project=project, settings=settings))
 
 
 def _print_text(report: ScanReport) -> None:

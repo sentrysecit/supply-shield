@@ -9,7 +9,6 @@ import structlog
 from fastapi import FastAPI
 
 from supply_shield import __version__
-from supply_shield.analyzers.dependency_confusion.detector import DependencyConfusionAnalyzer
 from supply_shield.analyzers.typosquatting import SeverityThresholds, TyposquattingAnalyzer
 from supply_shield.api import admin, auth, health, scan
 from supply_shield.api.admin.sync import refresh_loop, safe_refresh
@@ -68,11 +67,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def _init_analyzers(app: FastAPI, settings: Settings) -> None:
-    """Registra los analizadores disponibles para el escaneo (D5-6)."""
-    app.state.analyzers = (
-        app.state.typosquatting_analyzer,
-        DependencyConfusionAnalyzer(settings.projects_file),
-    )
+    """Registra los analizadores del escaneo de lockfiles (D5-6).
+
+    Solo typosquatting: dependency confusion se decide en el proxy al resolver
+    (nombre interno pedido al registro público); un lockfile ya resolvió sus URLs
+    y marcar nombres internos ahí sería falso positivo (ADR 0011).
+    """
+    app.state.analyzers = (app.state.typosquatting_analyzer,)
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
