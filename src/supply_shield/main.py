@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 from supply_shield import __version__
 from supply_shield.analyzers.typosquatting import SeverityThresholds, TyposquattingAnalyzer
-from supply_shield.api import admin, auth, health
+from supply_shield.api import admin, auth, health, scan
 from supply_shield.api.admin.sync import refresh_loop, safe_refresh
 from supply_shield.config import Settings, get_settings
 from supply_shield.db import get_session_factory, init_engine
@@ -31,10 +31,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Supply-Shield", version=__version__, lifespan=_lifespan)
     app.include_router(health.router)
     app.include_router(admin.router)
+    app.include_router(scan.router)
     _init_token_store(app, settings)
     _init_policy(app, settings)
     _init_admin(app, settings)
     _init_typosquatting(app, settings)
+    _init_analyzers(app, settings)
     return app
 
 
@@ -62,6 +64,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+
+
+def _init_analyzers(app: FastAPI, settings: Settings) -> None:
+    """Registra los analizadores del escaneo de lockfiles (D5-6).
+
+    Solo typosquatting: dependency confusion se decide en el proxy al resolver
+    (nombre interno pedido al registro público); un lockfile ya resolvió sus URLs
+    y marcar nombres internos ahí sería falso positivo (ADR 0011).
+    """
+    app.state.analyzers = (app.state.typosquatting_analyzer,)
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
