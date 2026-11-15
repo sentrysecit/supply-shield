@@ -12,7 +12,7 @@ Funciona como **registry mirror**: los clientes apuntan `registry=` (en `.npmrc`
 
 ## Estado del proyecto
 
-🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), la API de administración (`api/admin/`, ver [docs/admin-api.md](docs/admin-api.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)) y las herramientas de calidad (hooks, CI y ADRs). El proxy y los demás analizadores todavía no están implementados: no hay un endpoint que evalúe un paquete.
+🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), la API de administración (`api/admin/`, ver [docs/admin-api.md](docs/admin-api.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)), el espejo de PyPI (`proxy/pypi/`, ver [docs/pypi.md](docs/pypi.md)) y las herramientas de calidad (hooks, CI y ADRs). El espejo de npm, los detectores de vulnerabilidades y el motor de evaluación todavía no están implementados: las rutas del proxy aún no aplican bloqueos.
 
 ## Requisitos
 
@@ -135,7 +135,7 @@ supply-shield/
 │   ├── db/              # PostgreSQL: modelos, sesión y repositorio de la API de admin
 │   ├── core/            # modelos compartidos: paquete, hallazgo y decisión
 │   ├── cache/           # caché en memoria (LRU y tiempo de vida)
-│   ├── proxy/           # adaptadores de registro: npm/ y pypi/
+│   ├── proxy/           # adaptadores de registro: npm/ y pypi/ (espejo del índice simple)
 │   ├── analyzers/       # vulnerabilities/ (OSV) y typosquatting/
 │   ├── policy/          # motor de políticas de bloqueo
 │   └── sbom/            # generación de SBOM CycloneDX
@@ -153,6 +153,7 @@ supply-shield/
 │   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
 │   ├── admin-api.md     # API de administración: excepciones, tokens, recarga, decisiones y SBOMs
 │   ├── typosquatting.md # cómo funciona el detector de typosquatting
+│   ├── pypi.md          # espejo de PyPI: rutas, configuración de clientes y límites
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
 ├── Dockerfile
@@ -172,6 +173,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 - [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
 - [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, tokens de proyecto, recarga de la política, decisiones y SBOMs).
 - [docs/typosquatting.md](docs/typosquatting.md): técnicas, puntaje y lista de permitidos del detector de typosquatting.
+- [docs/pypi.md](docs/pypi.md): espejo de PyPI: rutas, configuración de `pip`/`uv` y límites.
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
 - [AGENTS.md](AGENTS.md): guía para asistentes de código.
@@ -189,6 +191,7 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0008](docs/adr/0008-typosquatting-detector.md) | El typosquatting se detecta con un puntaje combinado (Damerau-Levenshtein exacto, Jaro-Winkler, separadores, letras parecidas, afijos y `@scope`) contra los paquetes populares, que nunca se marcan. |
 | [0009](docs/adr/0009-admin-api.md) | La API de administración usa un token propio (hash pbkdf2, solo Bearer). Las excepciones se guardan en la base, se revocan sin borrarse y se aplican en la petición siguiente; la política se recarga sin reiniciar y un archivo inválido no reemplaza a la vigente. |
 | [0010](docs/adr/0010-project-tokens-admin-api.md) | Los tokens de proyecto se crean y revocan desde la API de administración con el formato `ssp_<key_id>_<secreto>`: el `key_id` público permite buscarlos sin probar todos los hashes. Se muestran una sola vez y revocar no borra. La autenticación del proxy todavía no los lee. |
+| [0011](docs/adr/0011-pypi-simple-proxy.md) | El espejo de PyPI sirve el índice simple (PEP 503/691) con PEP 658 y *yanked*, reescribe las URLs a `/packages/` conservando `#sha256=`, y verifica SHA-256 al reenviar. Sin bloqueo todavía (D1-3). |
 
 ## Licencia
 

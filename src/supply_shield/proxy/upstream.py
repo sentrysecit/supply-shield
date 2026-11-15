@@ -7,6 +7,7 @@ un ``Location`` malicioso no puede bypassar la allowlist.
 """
 
 import asyncio
+from collections.abc import Mapping
 
 import httpx
 import structlog
@@ -74,19 +75,21 @@ async def upstream_get(
     client: httpx.AsyncClient,
     url: str | httpx.URL,
     settings: Settings,
+    headers: Mapping[str, str] | None = None,
 ) -> httpx.Response:
     """GET a un recurso upstream, aplicando la allowlist y los reintentos.
 
     Los fallos transitorios (timeouts, errores de conexión, 5xx) se reintentan con
     backoff exponencial hasta ``settings.upstream_max_retries`` veces. Una respuesta
-    3xx se rechaza: el proxy nunca sigue redirects.
+    3xx se rechaza: el proxy nunca sigue redirects. ``headers`` permite pedir un
+    formato concreto (por ejemplo el índice simple en JSON) sin duplicar el cliente.
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
     max_retries = settings.upstream_max_retries
     attempt = 0
     while True:
         try:
-            response = await client.get(parsed)
+            response = await client.get(parsed, headers=headers)
         except (httpx.TimeoutException, httpx.ConnectError) as error:
             if attempt >= max_retries:
                 raise UpstreamRequestError(f"upstream GET {parsed} failed") from error

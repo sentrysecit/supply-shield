@@ -19,6 +19,9 @@ from supply_shield.db.repository import AdminRepository, SqlAdminRepository
 from supply_shield.logging import configure_logging
 from supply_shield.policy import PolicyHolder, default_source, read_policy_file
 from supply_shield.policy.models import Policy
+from supply_shield.proxy.pypi import PyPIRegistry
+from supply_shield.proxy.pypi import router as pypi_router
+from supply_shield.proxy.upstream import build_upstream_client
 
 _logger = structlog.get_logger(__name__)
 
@@ -31,10 +34,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Supply-Shield", version=__version__, lifespan=_lifespan)
     app.include_router(health.router)
     app.include_router(admin.router)
+    app.include_router(pypi_router)
     _init_token_store(app, settings)
     _init_policy(app, settings)
     _init_admin(app, settings)
     _init_typosquatting(app, settings)
+    _init_pypi(app, settings)
     return app
 
 
@@ -62,6 +67,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+        await app.state.upstream_client.aclose()
+
+
+def _init_pypi(app: FastAPI, settings: Settings) -> None:
+    """Construye el cliente HTTP upstream compartido y el espejo de PyPI.
+
+    El cliente se guarda en ``app.state`` para que las rutas del proxy lo
+    reutilicen; ``_lifespan`` lo cierra al apagar el servicio.
+    """
+    client = build_upstream_client(settings)
+    app.state.upstream_client = client
+    app.state.pypi_registry = PyPIRegistry(client, settings)
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
