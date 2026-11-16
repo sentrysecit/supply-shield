@@ -56,6 +56,18 @@ def _run_npm(args: str, cwd: Path, timeout: int = 120) -> subprocess.CompletedPr
     )
 
 
+def _run_pnpm(args: str, cwd: Path, timeout: int = 120) -> subprocess.CompletedProcess[bytes]:
+    """Run a pnpm command, using shell on Windows where pnpm is a .cmd file."""
+    return subprocess.run(
+        f"pnpm {args}",
+        cwd=cwd,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+        shell=sys.platform.startswith("win"),
+    )
+
+
 @pytest.fixture
 def proxy_url() -> Iterator[str]:
     """Start the proxy on a free port and yield its base URL."""
@@ -106,3 +118,30 @@ def test_npm_ci_respects_lockfile(proxy_url: str, tmp_path: Path) -> None:
     ci = _run_npm(f'ci --registry "{registry}" --no-audit --no-fund', project)
     assert ci.returncode == 0, ci.stderr.decode()
     assert (project / "node_modules" / "express").exists()
+
+
+def test_pnpm_install_through_proxy(proxy_url: str, tmp_path: Path) -> None:
+    """pnpm install of express works through the proxy."""
+    if shutil.which("pnpm") is None:
+        pytest.skip("pnpm is not installed")
+    project = tmp_path / "project"
+    _write_package_json(project)
+    registry = f"{proxy_url}/npm/"
+    result = _run_pnpm(f'install --registry "{registry}" --no-lockfile', project)
+    assert result.returncode == 0, result.stderr.decode()
+    assert (project / "node_modules" / "express").exists()
+
+
+def test_npm_install_scoped_package_through_proxy(proxy_url: str, tmp_path: Path) -> None:
+    """S8: npm install de un paquete con scope (@types/node) funciona a través del proxy."""
+    project = tmp_path / "project"
+    project.mkdir(parents=True, exist_ok=True)
+    (project / "package.json").write_text(
+        '{"name": "supply-shield-e2e-scoped", "version": "1.0.0",'
+        ' "dependencies": {"express": "4.18.2", "@types/node": "18.0.0"}}',
+    )
+    registry = f"{proxy_url}/npm/"
+    result = _run_npm(f'install --registry "{registry}" --no-audit --no-fund', project)
+    assert result.returncode == 0, result.stderr.decode()
+    assert (project / "node_modules" / "express").exists()
+    assert (project / "node_modules" / "@types" / "node").exists()
