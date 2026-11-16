@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "628eedc935695017279728178cbc6a47744b712b",
+    "indexed_at": "2026-11-11T01:42:01Z",
+    "project": "supply-shield",
+    "nodes": 852,
+    "edges": 2579,
+    "original_size": 4718592,
+    "compressed_size": 747914,
+    "compression_level": 9
+}
