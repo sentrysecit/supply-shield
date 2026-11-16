@@ -1,9 +1,10 @@
 """Ajustes de la aplicación, cargados desde variables de entorno ``SUPPLY_SHIELD_*``."""
 
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +28,22 @@ class Settings(BaseSettings):
     cache_findings_ttl_seconds: int = Field(default=21_600, ge=1)
     cache_decisions_ttl_seconds: int = Field(default=300, ge=1)
 
+    # Project authentication: YAML file with project names and hashed tokens.
+    projects_file: Path = Field(default=Path("config/projects.yaml"))
+
+    # Política de bloqueo (D4-3). Si el archivo no existe se usa la política de
+    # fábrica; si existe pero es inválido, la aplicación no arranca.
+    policy_file: Path = Field(default=Path("config/policy.yaml"))
+
+    # Detector de typosquatting (D4-4). Sin las listas o con un archivo inválido, la
+    # aplicación no arranca. Los umbrales traducen el puntaje 0-1 a una severidad.
+    popular_packages_dir: Path = Field(default=Path("data/popular"))
+    typosquatting_allowlist_file: Path = Field(default=Path("data/typosquatting/allowlist.yaml"))
+    typosquatting_report_threshold: float = Field(default=0.60, ge=0, le=1)
+    typosquatting_medium_threshold: float = Field(default=0.70, ge=0, le=1)
+    typosquatting_high_threshold: float = Field(default=0.85, ge=0, le=1)
+    typosquatting_critical_threshold: float = Field(default=0.95, ge=0, le=1)
+
     # Cliente del registro upstream (D1-1). La allowlist de hosts es la frontera SSRF:
     # toda petición saliente debe apuntar a uno de estos hosts. Se override por env
     # como un array JSON, p. ej. SUPPLY_SHIELD_UPSTREAM_HOSTS='["registry.npmjs.org"]'.
@@ -46,6 +63,44 @@ class Settings(BaseSettings):
     # cada adaptador le añade su propio prefijo (p. ej. "/npm/") al reescribir
     # las URLs de descarga. Ver ADR 0006.
     proxy_base_url: str = "http://localhost:8000"
+
+    # Heuristic risk rules. Thresholds live here so they can be changed without
+    # touching the rule implementations.
+    heuristics_cooldown_days: int = Field(default=30, ge=1)
+    heuristics_new_package_days: int = Field(default=90, ge=1)
+    heuristics_new_package_max_versions: int = Field(default=5, ge=1)
+
+    # API de administración (D4-5). El token se guarda como hash pbkdf2 (igual que los
+    # de proyecto, ver ``supply_shield.api.auth.hash_token``); sin hash, la API responde
+    # 503 y no se cargan excepciones de la base. Una excepción no puede durar más de
+    # ``admin_exception_max_days`` días, y cada proceso relee las excepciones de la
+    # base cada ``policy_exceptions_refresh_seconds`` segundos para ver las que
+    # crearon o revocaron otras réplicas.
+    admin_token_hash: SecretStr | None = None
+    admin_exception_max_days: int = Field(default=90, ge=1, le=365)
+    policy_exceptions_refresh_seconds: int = Field(default=30, ge=1)
+
+    # Base de datos PostgreSQL y Redis.
+    database_url: str = Field(
+        default="postgresql+asyncpg://supply_shield:supply_shield@localhost:5432/supply_shield"
+    )
+    redis_url: str = Field(default="redis://localhost:6379/0")
+
+    # Directorio para almacenamiento de artefactos direccionado por hash.
+    artifacts_dir: str = Field(default=".artifacts")
+
+    @model_validator(mode="after")
+    def _typosquatting_thresholds_ascend(self) -> Self:
+        thresholds = (
+            self.typosquatting_report_threshold,
+            self.typosquatting_medium_threshold,
+            self.typosquatting_high_threshold,
+            self.typosquatting_critical_threshold,
+        )
+        if list(thresholds) != sorted(thresholds):
+            msg = "typosquatting thresholds must satisfy report <= medium <= high <= critical"
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache

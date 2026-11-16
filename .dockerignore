@@ -4,5 +4,9 @@
 !uv.lock
 !README.md
 !src/
+!data/popular/
+!data/typosquatting/
+!alembic.ini
+!migrations/
 **/__pycache__/
 **/*.py[cod]

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/astral-sh/uv:0.13.5 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 # --- Builder: resolve and install the locked production dependencies ---
 FROM python:3.13-slim AS builder
@@ -37,6 +37,14 @@ RUN groupadd --system --gid 1001 app \
 
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Popular package lists and allowlist for the typosquatting detector (D4-4).
+# Owned by root so the app user can read them but never rewrite them.
+COPY data/popular ./data/popular
+COPY data/typosquatting ./data/typosquatting
+# Database migrations (D5-5): `alembic upgrade head` runs from this image, as the
+# one-shot "migrate" service in docker compose or as a deploy step. Also read-only.
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 USER app
 EXPOSE 8000

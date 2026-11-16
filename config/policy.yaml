@@ -1,0 +1,78 @@
+# Política de bloqueo de Supply-Shield (D4-3).
+#
+# Explicación de cada valor y de por qué se eligió: docs/policy.md.
+#
+# Modos:
+#   block -> el proxy no sirve la versión (403 si se pide directo).
+#   warn  -> se sirve y la advertencia queda en el log y en la decisión.
+#   log   -> se sirve sin aviso; el hallazgo solo queda para auditoría.
+#
+# Por regla:
+#   mode               -> modo para hallazgos con severidad >= severity_threshold.
+#   severity_threshold -> low | medium | high | critical. Por debajo, solo se registra.
+#   unknown            -> modo para hallazgos sin severidad usable (UNKNOWN, ADR 0003).
+#
+# Lo que no se escribe toma el valor de fábrica, así que en "projects" y en
+# "rules" basta con poner los campos que cambian. Una regla con un nombre que
+# no existe hace fallar la carga.
+
+version: 1
+
+# Hallazgos de reglas que esta versión de la política no conoce.
+default_rule:
+  mode: warn
+  severity_threshold: low
+  unknown: warn
+
+rules:
+  vulnerability:
+    mode: block
+    severity_threshold: critical
+    unknown: warn
+  known_malware:
+    mode: block
+    severity_threshold: low
+    unknown: block
+  typosquatting:
+    mode: block
+    severity_threshold: high
+    unknown: warn
+  dependency_confusion:
+    mode: block
+    severity_threshold: low
+    unknown: block
+  cooldown:
+    mode: block
+    severity_threshold: low
+    unknown: block
+  install_scripts:
+    mode: warn
+    severity_threshold: low
+    unknown: warn
+  new_package:
+    mode: warn
+    severity_threshold: low
+    unknown: warn
+
+# Ajustes por proyecto (el nombre es el de config/projects.yaml).
+projects: {}
+#  backend:
+#    rules:
+#      vulnerability:
+#        severity_threshold: high   # este proyecto también bloquea las altas
+#  frontend:
+#    rules:
+#      install_scripts:
+#        mode: log
+
+# Excepciones temporales. Cada una necesita "package", "advisory" o ambos,
+# además de justificación, autor y fecha de vencimiento (inclusive, en UTC).
+# Al vencer deja de aplicarse sola. Escribe las versiones entre comillas.
+exceptions: []
+#  - advisory: GHSA-35jh-r3h4-6jhm
+#    package: {ecosystem: npm, name: lodash, version: "4.17.20"}
+#    rule: vulnerability
+#    projects: [frontend]
+#    justification: "La función afectada (template) no se usa; migración en JIRA-123."
+#    author: "equipo-seguridad"
+#    expires: 2026-12-31
