@@ -3,6 +3,8 @@
 from collections.abc import AsyncIterator
 from typing import Any
 
+import structlog
+
 from supply_shield.config import Settings
 from supply_shield.proxy.download import stream_upstream
 from supply_shield.proxy.npm.packument import fetch_packument, integrity_to_hex
@@ -10,6 +12,7 @@ from supply_shield.proxy.upstream import UpstreamRequestError, build_upstream_cl
 
 _TARBALL_PATH_SUFFIX = "/-/"
 _OK_STATUS = 200
+_log = structlog.get_logger(__name__)
 
 
 async def resolve_tarball(
@@ -39,6 +42,12 @@ async def resolve_tarball(
             tarball_url = dist.get("tarball", "")
             integrity = dist.get("integrity", "")
             if isinstance(tarball_url, str) and tarball_url.endswith(suffix) and integrity:
+                _log.info(
+                    "npm.tarball.resolved",
+                    package=package,
+                    filename=filename,
+                    url=tarball_url,
+                )
                 return tarball_url, integrity_to_hex(integrity)
 
     raise UpstreamRequestError(f"no tarball matching {filename} found in {package}")
@@ -50,6 +59,7 @@ async def stream_tarball(
     settings: Settings,
 ) -> AsyncIterator[bytes]:
     """Streamea un tarball desde el upstream verificando su SHA-512 (D1-1)."""
+    _log.info("npm.tarball.stream_start", url=tarball_url)
     async with build_upstream_client(settings) as client:
         async for chunk in stream_upstream(client, tarball_url, expected_hex, settings):
             yield chunk

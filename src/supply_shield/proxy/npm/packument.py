@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import unquote
 
 import httpx
+import structlog
 
 from supply_shield.config import Settings
 from supply_shield.core.enums import Ecosystem
@@ -18,11 +19,25 @@ from supply_shield.proxy.upstream import upstream_get
 
 _NPM_REGISTRY = "https://registry.npmjs.org"
 _NPM_TARBALL_PREFIX = "sha512-"
+_log = structlog.get_logger(__name__)
+
+_UNSAFE_SEQUENCES = ("..", "\x00")
 
 
 def decode_package_name(encoded: str) -> str:
     """Decodifica un nombre de paquete que puede llegar URL-encoded (scopes)."""
     return unquote(encoded)
+
+
+def validate_package_name(name: str) -> None:
+    """Rechaza nombres de paquete con secuencias peligrosas antes de reenviar al upstream.
+
+    Bloquea path traversal (`..`) y bytes nulos para evitar que nombres adversariales
+    lleguen al upstream o exploten errores de parseo aguas abajo.
+    """
+    for seq in _UNSAFE_SEQUENCES:
+        if seq in name:
+            raise ValueError(f"secuencia no permitida {seq!r} en nombre de paquete {name!r}")
 
 
 def _rewrite_tarball_url(original: str, proxy_base_url: str) -> str:
@@ -37,10 +52,15 @@ def rewrite_tarballs(packument: dict[str, Any], proxy_base_url: str) -> dict[str
     Sin esto, el cliente descargaría los tarballs directamente del upstream,
     bypassando el firewall. Ver ADR 0002 y ADR 0006.
     """
+    name = packument.get("name", "")
+    rewritten = 0
     for version in packument.get("versions", {}).values():
         dist = version.get("dist") if isinstance(version, dict) else None
         if isinstance(dist, dict) and "tarball" in dist:
-            dist["tarball"] = _rewrite_tarball_url(dist["tarball"], proxy_base_url)
+            original = dist["tarball"]
+            dist["tarball"] = _rewrite_tarball_url(original, proxy_base_url)
+            rewritten += 1
+    _log.debug("npm.packument.tarballs_rewritten", package=name, count=rewritten)
     return packument
 
 
