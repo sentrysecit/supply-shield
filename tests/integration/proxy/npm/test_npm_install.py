@@ -4,6 +4,7 @@ These tests hit the real registry.npmjs.org and require npm installed.
 Mark as integration so they only run with `pytest -m integration`.
 """
 
+import shlex
 import shutil
 import socket
 import subprocess
@@ -46,25 +47,23 @@ def _wait_for_server(url: str, timeout: float = 15.0) -> None:
 
 def _run_npm(args: str, cwd: Path, timeout: int = 120) -> subprocess.CompletedProcess[bytes]:
     """Run an npm command, using shell on Windows where npm is a .cmd file."""
+    if sys.platform.startswith("win"):
+        return subprocess.run(
+            f"npm {args}", cwd=cwd, capture_output=True, timeout=timeout, check=False, shell=True
+        )
     return subprocess.run(
-        f"npm {args}",
-        cwd=cwd,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-        shell=sys.platform.startswith("win"),
+        ["npm", *shlex.split(args)], cwd=cwd, capture_output=True, timeout=timeout, check=False
     )
 
 
 def _run_pnpm(args: str, cwd: Path, timeout: int = 120) -> subprocess.CompletedProcess[bytes]:
     """Run a pnpm command, using shell on Windows where pnpm is a .cmd file."""
+    if sys.platform.startswith("win"):
+        return subprocess.run(
+            f"pnpm {args}", cwd=cwd, capture_output=True, timeout=timeout, check=False, shell=True
+        )
     return subprocess.run(
-        f"pnpm {args}",
-        cwd=cwd,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-        shell=sys.platform.startswith("win"),
+        ["pnpm", *shlex.split(args)], cwd=cwd, capture_output=True, timeout=timeout, check=False
     )
 
 
