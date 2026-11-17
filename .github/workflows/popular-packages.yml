@@ -26,7 +26,13 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run python scripts/fetch_popular.py
+      - name: Fetch the rankings and review the newcomers
+        # Un nombre nuevo que imita a un paquete que ya era popular queda en cuarentena:
+        # no entra a la lista (docs/adr/0011-popular-list-newcomer-quarantine.md).
+        run: uv run python scripts/fetch_popular.py --report "$RUNNER_TEMP/popular-report.md"
+      - name: Publish the newcomer review
+        # Visible también cuando la lista no cambia y no se abre un PR.
+        run: cat "$RUNNER_TEMP/popular-report.md" >> "$GITHUB_STEP_SUMMARY"
       - uses: peter-evans/create-pull-request@v8
         with:
           # Un PR abierto con GITHUB_TOKEN no dispara la CI. Con un token propio en
@@ -37,12 +43,5 @@ jobs:
           delete-branch: true
           commit-message: "chore(data): refresh popular package lists"
           title: "chore(data): refresh popular package lists"
-          body: |
-            Actualización semanal de `data/popular/` generada por `scripts/fetch_popular.py`.
-
-            Antes de aprobar, se revisa `source` y `published_at` en cada archivo y mira los
-            nombres que entraron a la lista: un paquete que sube al top solo porque
-            alguien infló sus descargas no debería servir de referencia para el
-            detector de typosquatting.
-
-            Las fuentes están descritas en `docs/adr/0004-popular-package-sources.md`.
+          # El cuerpo lo escribe el script: qué revisar, quién entra y quién quedó en cuarentena.
+          body-path: ${{ runner.temp }}/popular-report.md
