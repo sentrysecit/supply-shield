@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif">
+<title id="t">PyPI: precisión, recall y F1 según el umbral de bloqueo</title>
+<desc id="d">Curvas escalonadas de precisión, recall y F1 del detector de typosquatting en PyPI para umbrales de 0,70 a 1,00. Los valores están en metricas.csv.</desc>
+<style>
+@media (prefers-color-scheme: dark) {
+  .surface { fill: #1a1a19; }
+  .ink { fill: #f0efec; }
+  .ink-2 { fill: #c3c2b7; }
+  .muted { fill: #898781; }
+  .grid { stroke: #2c2c2a; }
+  .axis { stroke: #383835; }
+  .marker { stroke: #898781; }
+  .ring { stroke: #1a1a19; }
+  .s0 { stroke: #3987e5; }
+  .d0 { fill: #3987e5; }
+  .s1 { stroke: #d95926; }
+  .d1 { fill: #d95926; }
+  .s2 { stroke: #199e70; }
+  .d2 { fill: #199e70; }
+}
+</style>
+<rect class="surface" width="720" height="420" fill="#fcfcfb"/>
+<text class="ink" x="64" y="28" font-size="16" font-weight="600" fill="#0b0b0b">PyPI: precisión, recall y F1 según el umbral de bloqueo</text>
+<text class="ink-2" x="64" y="48" font-size="13" fill="#52514e">219 typosquats reales y 19 998 paquetes legítimos</text>
+<line class="axis" x1="64" x2="688" y1="360.0" y2="360.0" stroke="#c3c2b7" stroke-width="1"/>
+<text class="muted" x="56" y="364.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">0 %</text>
+<line class="grid" x1="64" x2="688" y1="308.8" y2="308.8" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="312.8" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">20 %</text>
+<line class="grid" x1="64" x2="688" y1="257.6" y2="257.6" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="261.6" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">40 %</text>
+<line class="grid" x1="64" x2="688" y1="206.4" y2="206.4" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="210.4" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">60 %</text>
+<line class="grid" x1="64" x2="688" y1="155.2" y2="155.2" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="159.2" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">80 %</text>
+<line class="grid" x1="64" x2="688" y1="104.0" y2="104.0" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="108.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">100 %</text>
+<text class="muted" x="64.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,70</text>
+<text class="muted" x="168.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,75</text>
+<text class="muted" x="272.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,80</text>
+<text class="muted" x="376.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,85</text>
+<text class="muted" x="480.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,90</text>
+<text class="muted" x="584.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,95</text>
+<text class="muted" x="688.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">1,00</text>
+<text class="ink-2" x="376.0" y="406" font-size="12" text-anchor="middle" fill="#52514e">Umbral de bloqueo</text>
+<line class="marker" x1="376.0" x2="376.0" y1="98" y2="360" stroke="#898781" stroke-width="1"/>
+<text class="muted" x="382.0" y="96" font-size="12" fill="#898781">bloqueo actual: 0,85</text>
+<path class="s0" d="M64.0,343.7H84.8V343.4H105.6V343.4H126.4V343.4H147.2V341.4H168.0V335.0H188.8V325.4H209.6V317.7H230.4V314.4H251.2V314.0H272.0V314.0H292.8V305.0H313.6V302.4H334.4V299.0H355.2V298.2H376.0V298.0H396.8V296.4H417.6V296.4H438.4V296.4H459.2V296.4H480.0V296.4H500.8V286.4H521.6V286.4H542.4V286.4H563.2V286.4H584.0V286.4H604.8V360.0H625.6V360.0H646.4V360.0H667.2V360.0H688.0V360.0" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="d0 ring" cx="376.0" cy="298.0" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="64.0" cy="343.7" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,70: 6,4 %</title></circle>
+<circle cx="84.8" cy="343.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,71: 6,5 %</title></circle>
+<circle cx="105.6" cy="343.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,72: 6,5 %</title></circle>
+<circle cx="126.4" cy="343.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,73: 6,5 %</title></circle>
+<circle cx="147.2" cy="341.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,74: 7,3 %</title></circle>
+<circle cx="168.0" cy="335.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,75: 9,8 %</title></circle>
+<circle cx="188.8" cy="325.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,76: 14 %</title></circle>
+<circle cx="209.6" cy="317.7" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,77: 17 %</title></circle>
+<circle cx="230.4" cy="314.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,78: 18 %</title></circle>
+<circle cx="251.2" cy="314.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,79: 18 %</title></circle>
+<circle cx="272.0" cy="314.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,80: 18 %</title></circle>
+<circle cx="292.8" cy="305.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,81: 21 %</title></circle>
+<circle cx="313.6" cy="302.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,82: 23 %</title></circle>
+<circle cx="334.4" cy="299.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,83: 24 %</title></circle>
+<circle cx="355.2" cy="298.2" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,84: 24 %</title></circle>
+<circle cx="376.0" cy="298.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,85: 24 %</title></circle>
+<circle cx="396.8" cy="296.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,86: 25 %</title></circle>
+<circle cx="417.6" cy="296.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,87: 25 %</title></circle>
+<circle cx="438.4" cy="296.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,88: 25 %</title></circle>
+<circle cx="459.2" cy="296.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,89: 25 %</title></circle>
+<circle cx="480.0" cy="296.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,90: 25 %</title></circle>
+<circle cx="500.8" cy="286.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,91: 29 %</title></circle>
+<circle cx="521.6" cy="286.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,92: 29 %</title></circle>
+<circle cx="542.4" cy="286.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,93: 29 %</title></circle>
+<circle cx="563.2" cy="286.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,94: 29 %</title></circle>
+<circle cx="584.0" cy="286.4" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,95: 29 %</title></circle>
+<circle cx="604.8" cy="360.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,96: 0 %</title></circle>
+<circle cx="625.6" cy="360.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,97: 0 %</title></circle>
+<circle cx="646.4" cy="360.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,98: 0 %</title></circle>
+<circle cx="667.2" cy="360.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 0,99: 0 %</title></circle>
+<circle cx="688.0" cy="360.0" r="9" fill="transparent"><title>Precisión · Umbral de bloqueo 1,00: 0 %</title></circle>
+<path class="s1" d="M64.0,208.0H84.8V209.2H105.6V209.2H126.4V209.2H147.2V217.4H168.0V223.2H188.8V236.1H209.6V243.1H230.4V244.3H251.2V244.3H272.0V244.3H292.8V252.5H313.6V257.1H334.4V258.3H355.2V259.5H376.0V259.5H396.8V259.5H417.6V259.5H438.4V259.5H459.2V259.5H480.0V259.5H500.8V272.3H521.6V272.3H542.4V272.3H563.2V272.3H584.0V272.3H604.8V360.0H625.6V360.0H646.4V360.0H667.2V360.0H688.0V360.0" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="d1 ring" cx="376.0" cy="259.5" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="64.0" cy="208.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,70: 59 %</title></circle>
+<circle cx="84.8" cy="209.2" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,71: 59 %</title></circle>
+<circle cx="105.6" cy="209.2" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,72: 59 %</title></circle>
+<circle cx="126.4" cy="209.2" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,73: 59 %</title></circle>
+<circle cx="147.2" cy="217.4" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,74: 56 %</title></circle>
+<circle cx="168.0" cy="223.2" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,75: 53 %</title></circle>
+<circle cx="188.8" cy="236.1" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,76: 48 %</title></circle>
+<circle cx="209.6" cy="243.1" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,77: 46 %</title></circle>
+<circle cx="230.4" cy="244.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,78: 45 %</title></circle>
+<circle cx="251.2" cy="244.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,79: 45 %</title></circle>
+<circle cx="272.0" cy="244.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,80: 45 %</title></circle>
+<circle cx="292.8" cy="252.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,81: 42 %</title></circle>
+<circle cx="313.6" cy="257.1" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,82: 40 %</title></circle>
+<circle cx="334.4" cy="258.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,83: 40 %</title></circle>
+<circle cx="355.2" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,84: 39 %</title></circle>
+<circle cx="376.0" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,85: 39 %</title></circle>
+<circle cx="396.8" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,86: 39 %</title></circle>
+<circle cx="417.6" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,87: 39 %</title></circle>
+<circle cx="438.4" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,88: 39 %</title></circle>
+<circle cx="459.2" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,89: 39 %</title></circle>
+<circle cx="480.0" cy="259.5" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,90: 39 %</title></circle>
+<circle cx="500.8" cy="272.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,91: 34 %</title></circle>
+<circle cx="521.6" cy="272.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,92: 34 %</title></circle>
+<circle cx="542.4" cy="272.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,93: 34 %</title></circle>
+<circle cx="563.2" cy="272.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,94: 34 %</title></circle>
+<circle cx="584.0" cy="272.3" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,95: 34 %</title></circle>
+<circle cx="604.8" cy="360.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,96: 0 %</title></circle>
+<circle cx="625.6" cy="360.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,97: 0 %</title></circle>
+<circle cx="646.4" cy="360.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,98: 0 %</title></circle>
+<circle cx="667.2" cy="360.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 0,99: 0 %</title></circle>
+<circle cx="688.0" cy="360.0" r="9" fill="transparent"><title>Recall · Umbral de bloqueo 1,00: 0 %</title></circle>
+<path class="s2" d="M64.0,330.5H84.8V330.1H105.6V330.1H126.4V330.1H147.2V327.1H168.0V317.8H188.8V305.9H209.6V297.9H230.4V294.6H251.2V294.2H272.0V294.2H292.8V287.2H313.6V286.1H334.4V283.7H355.2V283.4H376.0V283.3H396.8V282.1H417.6V282.1H438.4V282.1H459.2V282.1H480.0V282.1H500.8V280.0H521.6V280.0H542.4V280.0H563.2V280.0H584.0V280.0" fill="none" stroke="#1baf7a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="d2 ring" cx="376.0" cy="283.3" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="64.0" cy="330.5" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,70: 12 %</title></circle>
+<circle cx="84.8" cy="330.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,71: 12 %</title></circle>
+<circle cx="105.6" cy="330.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,72: 12 %</title></circle>
+<circle cx="126.4" cy="330.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,73: 12 %</title></circle>
+<circle cx="147.2" cy="327.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,74: 13 %</title></circle>
+<circle cx="168.0" cy="317.8" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,75: 16 %</title></circle>
+<circle cx="188.8" cy="305.9" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,76: 21 %</title></circle>
+<circle cx="209.6" cy="297.9" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,77: 24 %</title></circle>
+<circle cx="230.4" cy="294.6" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,78: 26 %</title></circle>
+<circle cx="251.2" cy="294.2" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,79: 26 %</title></circle>
+<circle cx="272.0" cy="294.2" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,80: 26 %</title></circle>
+<circle cx="292.8" cy="287.2" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,81: 28 %</title></circle>
+<circle cx="313.6" cy="286.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,82: 29 %</title></circle>
+<circle cx="334.4" cy="283.7" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,83: 30 %</title></circle>
+<circle cx="355.2" cy="283.4" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,84: 30 %</title></circle>
+<circle cx="376.0" cy="283.3" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,85: 30 %</title></circle>
+<circle cx="396.8" cy="282.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,86: 30 %</title></circle>
+<circle cx="417.6" cy="282.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,87: 30 %</title></circle>
+<circle cx="438.4" cy="282.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,88: 30 %</title></circle>
+<circle cx="459.2" cy="282.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,89: 30 %</title></circle>
+<circle cx="480.0" cy="282.1" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,90: 30 %</title></circle>
+<circle cx="500.8" cy="280.0" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,91: 31 %</title></circle>
+<circle cx="521.6" cy="280.0" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,92: 31 %</title></circle>
+<circle cx="542.4" cy="280.0" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,93: 31 %</title></circle>
+<circle cx="563.2" cy="280.0" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,94: 31 %</title></circle>
+<circle cx="584.0" cy="280.0" r="9" fill="transparent"><title>F1 · Umbral de bloqueo 0,95: 31 %</title></circle>
+<text class="ink-2" x="64.0" y="76" font-size="12" fill="#52514e">Con 0,85:</text>
+<line class="s0" x1="139.0" x2="155.0" y1="72" y2="72" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<text class="ink-2" x="161.0" y="76" font-size="12" fill="#52514e">Precisión 24 %</text>
+<line class="s1" x1="279.0" x2="295.0" y1="72" y2="72" stroke="#eb6834" stroke-width="2" stroke-linecap="round"/>
+<text class="ink-2" x="301.0" y="76" font-size="12" fill="#52514e">Recall 39 %</text>
+<line class="s2" x1="398.0" x2="414.0" y1="72" y2="72" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<text class="ink-2" x="420.0" y="76" font-size="12" fill="#52514e">F1 30 %</text>
+</svg>

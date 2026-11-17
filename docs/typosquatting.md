@@ -35,7 +35,7 @@ El puntaje de un objetivo es el peso de la técnica más fuerte más **0,05** po
 | ≥ 0,60 | `low` | solo se registra |
 | < 0,60 | — (sin hallazgo) | — |
 
-Una sola técnica fuerte (separadores, letras parecidas, scope o una edición) basta para bloquear. Una débil y aislada (afijo, solo Jaro-Winkler, cambio del número final) solo se registra. Los umbrales se configuran con `SUPPLY_SHIELD_TYPOSQUATTING_{REPORT,MEDIUM,HIGH,CRITICAL}_THRESHOLD` y deben ir en orden creciente. Los pesos son provisionales: D4-6 los recalibra midiendo precisión y recall.
+Una sola técnica fuerte (separadores, letras parecidas, scope o una edición) basta para bloquear. Una débil y aislada (afijo, solo Jaro-Winkler, cambio del número final) solo se registra. Los umbrales se configuran con `SUPPLY_SHIELD_TYPOSQUATTING_{REPORT,MEDIUM,HIGH,CRITICAL}_THRESHOLD` y deben ir en orden creciente. Los valores por defecto se eligieron midiendo el detector con ataques reales ([Medición](#medición)).
 
 ## El hallazgo
 
@@ -99,6 +99,25 @@ match = analyzer.match(package)  # TyposquatMatch | None, sin umbrales
 # Para medir (D4-6): función pura, sin umbrales ni E/S.
 match = score_name("crossenv", analyzer.indexes[Ecosystem.NPM])
 ```
+
+## Medición
+
+D4-6 midió el detector con 503 typosquats reales de OpenSSF y unos 41 000 paquetes legítimos. Con el bloqueo en 0,85:
+
+- **Recall: 19 %.** Sube a 30 % si se cuentan solo los typosquats cuyo paquete imitado está en la lista popular (54 % en PyPI, 6 % en npm).
+- **Ningún paquete de la lista popular se bloquea.**
+- **Falsos positivos:** 1,9 % de los legítimos de los puestos 5 001 a ~15 000 y 0,5 % de una muestra al azar del registro.
+
+Entre 0,83 y 0,95 el F1 casi no cambia, así que el umbral se mantuvo ([ADR 0012](adr/0012-typosquatting-threshold-measured.md)).
+
+Lo que más se escapa no depende del umbral:
+
+- typosquats de paquetes que no están en la lista;
+- en npm, *combosquats* como `chalk-core` o `typescipt-cli`: el nombre real más otra palabra.
+
+El informe completo, con gráficas, límites y propuestas, está en [results/typosquatting.md](results/typosquatting.md).
+
+Si cambias pesos, técnicas, umbrales o listas, vuelve a medir con `make eval-typosquatting` (o `uv run python eval/typosquatting/evaluate.py`) y actualiza el informe. Cómo se arma el dataset: [`eval/typosquatting/README.md`](../eval/typosquatting/README.md).
 
 ## Rendimiento
 
