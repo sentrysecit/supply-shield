@@ -19,6 +19,7 @@ from supply_shield.db.repository import AdminRepository, SqlAdminRepository
 from supply_shield.logging import configure_logging
 from supply_shield.policy import PolicyHolder, default_source, read_policy_file
 from supply_shield.policy.models import Policy
+from supply_shield.proxy.npm import routes as npm_routes
 
 _logger = structlog.get_logger(__name__)
 
@@ -30,6 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Supply-Shield", version=__version__, lifespan=_lifespan)
     app.include_router(health.router)
+    app.include_router(npm_routes.router)
     app.include_router(admin.router)
     _init_token_store(app, settings)
     _init_policy(app, settings)

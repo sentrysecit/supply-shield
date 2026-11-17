@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
 
+    # URL base del proxy (D1-2). Solo host y puerto, sin prefijo de ecosistema;
+    # cada adaptador le añade su propio prefijo (p. ej. "/npm/") al reescribir
+    # las URLs de descarga. Ver ADR 0006.
+    proxy_base_url: str = "http://localhost:8000"
+
     # Heuristic risk rules. Thresholds live here so they can be changed without
     # touching the rule implementations.
     heuristics_cooldown_days: int = Field(default=30, ge=1)
