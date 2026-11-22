@@ -12,6 +12,12 @@ from supply_shield.analyzers.typosquatting.analyzer import (
     TyposquattingAnalyzer,
 )
 from supply_shield.analyzers.typosquatting.index import PopularIndex
+from supply_shield.analyzers.typosquatting.newcomers import (
+    HeldNewcomer,
+    NewcomerReview,
+    NewcomerShortfallError,
+    admit_newcomers,
+)
 from supply_shield.analyzers.typosquatting.popular import (
     PopularPackages,
     PopularPackagesSource,
@@ -29,6 +35,9 @@ __all__ = [
     "DEFAULT_WEIGHTS",
     "AllowedName",
     "AllowlistLoadError",
+    "HeldNewcomer",
+    "NewcomerReview",
+    "NewcomerShortfallError",
     "PopularIndex",
     "PopularPackages",
     "PopularPackagesSource",
@@ -38,6 +47,7 @@ __all__ = [
     "TyposquattingAllowlist",
     "TyposquattingAnalyzer",
     "TyposquattingWeights",
+    "admit_newcomers",
     "load_allowlist",
     "load_popular_packages",
     "parse_allowlist",
