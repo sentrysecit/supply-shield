@@ -252,3 +252,139 @@ def test_limit_must_be_positive() -> None:
     assert parse_args(["--limit", "1"]).limit == 1
     with pytest.raises(SystemExit):
         parse_args(["--limit", "0"])
+
+
+# --- Cuarentena de entrantes ---
+
+
+def _pypi_ranking(*names: str) -> httpx.Response:
+    """Volcado de PyPI con ``names`` del más descargado al menos."""
+    rows = [{"project": name, "download_count": 1000 - i} for i, name in enumerate(names)]
+    return httpx.Response(200, json={"last_update": "2026-11-01 00:00:00", "rows": rows})
+
+
+def _seed_pypi(upstream: respx.MockRouter, output_dir: Path) -> None:
+    """Deja en ``output_dir`` una lista anterior con ``python-dateutil``."""
+    upstream["pypi"].mock(return_value=_pypi_ranking("python-dateutil", "requests", "boto3"))
+    assert _run(output_dir, "--ecosystem", "pypi") == 0
+
+
+def test_lookalike_newcomer_stays_out_and_is_reported(
+    upstream: respx.MockRouter, tmp_path: Path
+) -> None:
+    _seed_pypi(upstream, tmp_path)
+    upstream["pypi"].mock(
+        return_value=_pypi_ranking(
+            "python-dateutil", "requests", "python3-dateutil", "boto3", "numpy", "attrs"
+        )
+    )
+    report = tmp_path / "out" / "report.md"
+
+    assert _run(tmp_path, "--ecosystem", "pypi", "--report", str(report), limit=4) == 0
+
+    packages = load_popular_packages(tmp_path / "pypi.json").packages
+    assert packages == ("python-dateutil", "requests", "boto3", "numpy")
+    text = report.read_text(encoding="utf-8")
+    assert "Entran 1, salen 0, en cuarentena 1." in text
+    assert "| `python3-dateutil` | 3 | `python-dateutil` | 1 |" in text
+    assert "Nombres que entran (1)" in text
+    assert "Cómo aprobar un nombre en cuarentena" in text
+    assert "\r\n" not in report.read_bytes().decode("utf-8")
+
+
+def test_allowlisted_newcomer_enters_the_list(upstream: respx.MockRouter, tmp_path: Path) -> None:
+    _seed_pypi(upstream, tmp_path)
+    upstream["pypi"].mock(
+        return_value=_pypi_ranking("python-dateutil", "requests", "python3-dateutil", "boto3")
+    )
+    allowlist = tmp_path / "allowlist.yaml"
+    allowlist.write_text(
+        "version: 1\npypi:\n  - name: python3-dateutil\n    reason: prueba\n", encoding="utf-8"
+    )
+    report = tmp_path / "report.md"
+
+    code = _run(
+        tmp_path,
+        "--ecosystem",
+        "pypi",
+        "--allowlist",
+        str(allowlist),
+        "--report",
+        str(report),
+        limit=4,
+    )
+
+    assert code == 0
+    packages = load_popular_packages(tmp_path / "pypi.json").packages
+    assert packages == ("python-dateutil", "requests", "python3-dateutil", "boto3")
+    text = report.read_text(encoding="utf-8")
+    assert "en cuarentena 0." in text
+    assert "Cómo aprobar" not in text
+
+
+def test_quarantine_that_empties_the_ranking_fails_and_keeps_the_list(
+    upstream: respx.MockRouter, tmp_path: Path
+) -> None:
+    _seed_pypi(upstream, tmp_path)
+    before = (tmp_path / "pypi.json").read_bytes()
+    upstream["pypi"].mock(
+        return_value=_pypi_ranking("python-dateutil", "requests", "python3-dateutil", "boto3")
+    )
+
+    assert _run(tmp_path, "--ecosystem", "pypi", limit=4) == 1
+    assert (tmp_path / "pypi.json").read_bytes() == before
+
+
+def test_first_generation_reports_no_review(upstream: respx.MockRouter, tmp_path: Path) -> None:
+    report = tmp_path / "report.md"
+
+    assert _run(tmp_path, "--report", str(report)) == 0
+
+    text = report.read_text(encoding="utf-8")
+    assert "### npm" in text
+    assert "### pypi" in text
+    assert text.count("Primera generación") == 2
+    assert "Cómo aprobar" not in text
+
+
+def test_list_of_another_ecosystem_is_not_used_as_previous(
+    upstream: respx.MockRouter, tmp_path: Path
+) -> None:
+    assert _run(tmp_path, "--ecosystem", "npm") == 0
+    (tmp_path / "pypi.json").write_bytes((tmp_path / "npm.json").read_bytes())
+
+    assert _run(tmp_path, "--ecosystem", "pypi") == 0
+    assert load_popular_packages(tmp_path / "pypi.json").packages[0] == "boto3"
+
+
+def test_missing_allowlist_fails_and_writes_nothing(
+    upstream: respx.MockRouter, tmp_path: Path
+) -> None:
+    output_dir = tmp_path / "lists"
+
+    assert _run(output_dir, "--allowlist", str(tmp_path / "missing.yaml")) == 1
+    assert not output_dir.exists()
+    assert not upstream["pypi"].called
+
+
+def test_long_reports_are_truncated(
+    upstream: respx.MockRouter, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(fetch_popular, "REPORT_MAX_HELD_ROWS", 1)
+    monkeypatch.setattr(fetch_popular, "REPORT_MAX_ENTERED_NAMES", 1)
+    _seed_pypi(upstream, tmp_path)
+    upstream["pypi"].mock(
+        return_value=_pypi_ranking(
+            "python-dateutil", "python3-dateutil", "pythondateutil", "numpy", "attrs", "boto3"
+        )
+    )
+    report = tmp_path / "report.md"
+
+    assert _run(tmp_path, "--ecosystem", "pypi", "--report", str(report), limit=4) == 0
+
+    text = report.read_text(encoding="utf-8")
+    assert "en cuarentena 2." in text
+    assert "`python3-dateutil`" in text
+    assert "`pythondateutil`" not in text
+    assert "… y 1 más." in text
+    assert "`numpy` … y 1 más." in text
