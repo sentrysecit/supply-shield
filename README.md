@@ -50,6 +50,7 @@ Con `make`, los pasos 2 y 3 son `make install` y el paso 5 es `make run`.
 | `make cov`              | `uv run pytest --cov --cov-report=term-missing --cov-report=xml`              | Todas las pruebas con cobertura (mínimo 80 %)            |
 | `make security`         | `uv run bandit -c pyproject.toml -r src` y los dos comandos de auditoría (\*) | Análisis estático de seguridad y auditoría de dependencias |
 | `make check`            | `lint`, `typecheck`, `security` y `cov`, en ese orden                         | Todo lo que valida la CI                                 |
+| `make eval-typosquatting` | `uv run python eval/typosquatting/evaluate.py`                              | Mide el detector de typosquatting y reescribe `docs/results/typosquatting/` |
 | `make up`               | `docker compose up -d --build`                                                | Construye la imagen, aplica las migraciones y levanta los servicios |
 | `make down`             | `docker compose down`                                                         | Detiene los servicios                                    |
 | `make clean`            | —                                                                             | Borra cachés y artefactos generados                      |
@@ -143,6 +144,7 @@ supply-shield/
 │   ├── unit/            # pruebas rápidas, sin red
 │   └── integration/     # pruebas con marker "integration"
 ├── scripts/             # utilidades: fetch_popular.py, create_admin_token.py y create_project_token.py
+├── eval/typosquatting/  # medición del detector de typosquatting: dataset etiquetado y scripts
 ├── migrations/          # migraciones de Alembic
 ├── data/
 │   ├── popular/         # top 5 000 de npm y PyPI para typosquatting
@@ -153,6 +155,7 @@ supply-shield/
 │   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
 │   ├── admin-api.md     # API de administración: excepciones, tokens, recarga, decisiones y SBOMs
 │   ├── typosquatting.md # cómo funciona el detector de typosquatting
+│   ├── results/         # resultados medidos (typosquatting.md: precisión, recall y umbral)
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
 ├── Dockerfile
@@ -172,6 +175,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 - [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
 - [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, tokens de proyecto, recarga de la política, decisiones y SBOMs).
 - [docs/typosquatting.md](docs/typosquatting.md): técnicas, puntaje y lista de permitidos del detector de typosquatting.
+- [docs/results/typosquatting.md](docs/results/typosquatting.md): medición del detector de typosquatting con ataques reales (precisión, recall, falsos positivos y umbral).
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
 - [AGENTS.md](AGENTS.md): guía para asistentes de código.
@@ -189,6 +193,8 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0008](docs/adr/0008-typosquatting-detector.md) | El typosquatting se detecta con un puntaje combinado (Damerau-Levenshtein exacto, Jaro-Winkler, separadores, letras parecidas, afijos y `@scope`) contra los paquetes populares, que nunca se marcan. |
 | [0009](docs/adr/0009-admin-api.md) | La API de administración usa un token propio (hash pbkdf2, solo Bearer). Las excepciones se guardan en la base, se revocan sin borrarse y se aplican en la petición siguiente; la política se recarga sin reiniciar y un archivo inválido no reemplaza a la vigente. |
 | [0010](docs/adr/0010-project-tokens-admin-api.md) | Los tokens de proyecto se crean y revocan desde la API de administración con el formato `ssp_<key_id>_<secreto>`: el `key_id` público permite buscarlos sin probar todos los hashes. Se muestran una sola vez y revocar no borra. La autenticación del proxy todavía no los lee. |
+| [0011](docs/adr/0011-popular-list-newcomer-quarantine.md) | Un nombre nuevo que imita a un paquete popular no entra a la lista popular hasta que se aprueba en la lista de permitidos. |
+| [0012](docs/adr/0012-typosquatting-threshold-measured.md) | El typosquatting sigue bloqueando desde 0,85: medido con 503 typosquats reales de OpenSSF y ~41 000 paquetes legítimos, el F1 es plano entre 0,83 y 0,95, y 0,85 es el que más ataques bloquea dentro de ese rango. |
 
 ## Licencia
 

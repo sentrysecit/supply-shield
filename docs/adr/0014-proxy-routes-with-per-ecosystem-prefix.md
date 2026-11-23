@@ -1,4 +1,4 @@
-# 0006. Rutas del proxy con prefijo por ecosistema
+# 0014. Rutas del proxy con prefijo por ecosistema
 
 - **Estado**: Aceptado
 - **Fecha**: 2026-10-31
