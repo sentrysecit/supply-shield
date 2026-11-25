@@ -7,7 +7,7 @@ Supply-Shield actúa como *registry mirror* de PyPI ([ADR 0002](adr/0002-registr
 | Ruta | Qué hace |
 | --- | --- |
 | `GET /pypi/simple/<proyecto>/` | Índice simple del proyecto, en HTML (PEP 503) o JSON (PEP 691) según `Accept`. |
-| `GET /pypi/simple/<proyecto>` | Redirige (307) a la forma con barra final. |
+| `GET /pypi/simple/<proyecto>` | Redirige (307) a la forma con barra final; lo hace Starlette (`redirect_slashes`). |
 | `GET /pypi/packages/sha256/<hex>/<ruta>` | Reenvía el artefacto verificando su SHA-256 mientras lo streamea. |
 | `GET /pypi/packages/<ruta>` | Reenvía el artefacto sin verificar (el índice no trajo hash). |
 
