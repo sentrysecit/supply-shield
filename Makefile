@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install run lint format typecheck test test-integration cov security check up down clean
+.PHONY: help install run lint format typecheck test test-integration cov security check eval-typosquatting up down clean
 
 AUDIT_REQUIREMENTS := requirements-audit.txt
 
@@ -30,8 +30,8 @@ test: ## Run unit tests
 test-integration: ## Run integration tests
 	uv run pytest -m integration
 
-cov: ## Run all tests with coverage (fails under 80%)
-	uv run pytest --cov --cov-report=term-missing --cov-report=xml
+cov: ## Run unit tests with coverage (fails under 80%)
+	uv run pytest -m "not integration" --cov --cov-report=term-missing --cov-report=xml
 
 security: ## Run bandit and audit the locked dependencies
 	uv run bandit -c pyproject.toml -r src
@@ -39,6 +39,9 @@ security: ## Run bandit and audit the locked dependencies
 	uv run pip-audit --requirement $(AUDIT_REQUIREMENTS) --require-hashes --disable-pip
 
 check: lint typecheck security cov ## Run everything CI runs
+
+eval-typosquatting: ## Measure the typosquatting detector (rewrites docs/results/typosquatting/)
+	uv run python eval/typosquatting/evaluate.py
 
 up: ## Build and start the container
 	docker compose up -d --build

@@ -5,12 +5,13 @@ import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 import structlog
 from fastapi import FastAPI
 
 from supply_shield import __version__
 from supply_shield.analyzers.typosquatting import SeverityThresholds, TyposquattingAnalyzer
-from supply_shield.api import admin, auth, health
+from supply_shield.api import admin, auth, health, scan
 from supply_shield.api.admin.sync import refresh_loop, safe_refresh
 from supply_shield.config import Settings, get_settings
 from supply_shield.db import get_session_factory, init_engine
@@ -19,6 +20,8 @@ from supply_shield.db.repository import AdminRepository, SqlAdminRepository
 from supply_shield.logging import configure_logging
 from supply_shield.policy import PolicyHolder, default_source, read_policy_file
 from supply_shield.policy.models import Policy
+from supply_shield.proxy.npm import routes as npm_routes
+from supply_shield.proxy.upstream import build_upstream_client
 
 _logger = structlog.get_logger(__name__)
 
@@ -30,11 +33,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Supply-Shield", version=__version__, lifespan=_lifespan)
     app.include_router(health.router)
+    app.include_router(npm_routes.router)
     app.include_router(admin.router)
+    app.include_router(scan.router)
     _init_token_store(app, settings)
+    _init_upstream_client(app, settings)
     _init_policy(app, settings)
     _init_admin(app, settings)
     _init_typosquatting(app, settings)
+    _init_analyzers(app, settings)
     return app
 
 
@@ -43,7 +50,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Carga las excepciones de la base al arrancar y las refresca mientras corre.
 
     Si la base no responde al arrancar, el servicio arranca igual con la política
-    del archivo: sin esas excepciones la política solo es más estricta.
+    del archivo: sin esas excepciones la política solo es más estricta. Al apagarse
+    cierra el cliente upstream compartido.
     """
     holder: PolicyHolder = app.state.policy_holder
     repository: AdminRepository | None = app.state.admin_repository
@@ -62,6 +70,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+        upstream_client: httpx.AsyncClient | None = getattr(app.state, "upstream_client", None)
+        if upstream_client is not None:
+            await upstream_client.aclose()
+
+
+def _init_analyzers(app: FastAPI, settings: Settings) -> None:
+    """Registra los analizadores del escaneo de lockfiles (D5-6).
+
+    Solo typosquatting: dependency confusion se decide en el proxy al resolver
+    (nombre interno pedido al registro público); un lockfile ya resolvió sus URLs
+    y marcar nombres internos ahí sería falso positivo (ADR 0011).
+    """
+    app.state.analyzers = (app.state.typosquatting_analyzer,)
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
@@ -146,6 +167,15 @@ def _init_admin(app: FastAPI, settings: Settings) -> None:
         _logger.info("admin.enabled")
     app.state.admin_repository = repository
     app.state.project_token_repository = project_tokens
+
+
+def _init_upstream_client(app: FastAPI, settings: Settings) -> None:
+    """Crea el cliente upstream único de la app (ADR 0005); el ``lifespan`` lo cierra.
+
+    Compartirlo hace que el pool de conexiones y el límite de
+    ``SUPPLY_SHIELD_UPSTREAM_MAX_CONNECTIONS`` valgan para todas las peticiones.
+    """
+    app.state.upstream_client = build_upstream_client(settings)
 
 
 def _init_token_store(app: FastAPI, settings: Settings) -> None:
