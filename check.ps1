@@ -23,7 +23,7 @@ uv run pip-audit --requirement requirements-audit.txt --require-hashes --disable
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Running tests with coverage (pytest)..."
-uv run pytest --cov --cov-report=term-missing --cov-report=xml
+uv run pytest -m "not integration" --cov --cov-report=term-missing --cov-report=xml
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "All checks passed successfully."

@@ -47,7 +47,7 @@ Con `make`, los pasos 2 y 3 son `make install` y el paso 5 es `make run`.
 | `make typecheck`        | `uv run mypy`                                                                 | Chequeo de tipos estricto                                |
 | `make test`             | `uv run pytest -m "not integration"`                                          | Pruebas unitarias                                        |
 | `make test-integration` | `uv run pytest -m integration`                                                | Pruebas de integración                                   |
-| `make cov`              | `uv run pytest --cov --cov-report=term-missing --cov-report=xml`              | Todas las pruebas con cobertura (mínimo 80 %)            |
+| `make cov`              | `uv run pytest -m "not integration" --cov --cov-report=term-missing --cov-report=xml` | Pruebas unitarias con cobertura (mínimo 80 %)  |
 | `make security`         | `uv run bandit -c pyproject.toml -r src` y los dos comandos de auditoría (\*) | Análisis estático de seguridad y auditoría de dependencias |
 | `make check`            | `lint`, `typecheck`, `security` y `cov`, en ese orden                         | Todo lo que valida la CI                                 |
 | `make up`               | `docker compose up -d --build`                                                | Construye la imagen, aplica las migraciones y levanta los servicios |
@@ -90,14 +90,14 @@ Todos estos comandos se ejecutan desde la carpeta `supply-shield`.
 
 **`uv run pytest --cov --cov-report=term-missing -m "not integration"`** corre esas mismas pruebas de unidad y mide cuánto código de `src/supply_shield` ejecutaron, incluidas las ramas de los `if`. La tabla final lista, por archivo, el porcentaje y las líneas que ningún test tocó. El mínimo del proyecto es **80 %**: si la cobertura queda por debajo, el comando falla aunque los tests hayan pasado.
 
-**`make cov`** mide la cobertura de **todas** las pruebas, también las de integración, y además escribe `coverage.xml`. El comando anterior, con `-m "not integration"`, no incluye esas pruebas ni genera el XML.
+**`make cov`** corre el mismo conjunto y además escribe `coverage.xml`, igual que el job `Test` de la CI. Las pruebas de integración hablan con registros reales (p. ej. `registry.npmjs.org`), así que quedan fuera de la cobertura: se corren con `make test-integration` y, en la CI, en el job `Integration`, para que una caída del registro no bloquee el resto.
 
 **`make check`** corre, en este orden, lo mismo que valida la CI:
 
 1. `make lint`: ruff busca errores de estilo y `ruff format --check` comprueba el formato. No modifica archivos. Para corregirlos está `make format`.
 2. `make typecheck`: mypy en modo estricto sobre `src`, `tests` y `scripts`.
 3. `make security`: bandit revisa `src`, y pip-audit revisa las dependencias fijadas en `uv.lock` (con sus hashes) en busca de vulnerabilidades conocidas.
-4. `make cov`: todas las pruebas con cobertura. El mínimo sigue siendo 80 %.
+4. `make cov`: las pruebas unitarias con cobertura. El mínimo sigue siendo 80 %.
 
 Si un paso falla, `make` se detiene.
 

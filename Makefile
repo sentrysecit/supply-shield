@@ -30,8 +30,8 @@ test: ## Run unit tests
 test-integration: ## Run integration tests
 	uv run pytest -m integration
 
-cov: ## Run all tests with coverage (fails under 80%)
-	uv run pytest --cov --cov-report=term-missing --cov-report=xml
+cov: ## Run unit tests with coverage (fails under 80%)
+	uv run pytest -m "not integration" --cov --cov-report=term-missing --cov-report=xml
 
 security: ## Run bandit and audit the locked dependencies
 	uv run bandit -c pyproject.toml -r src
