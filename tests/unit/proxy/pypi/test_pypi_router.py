@@ -76,6 +76,15 @@ async def test_simple_index_redirects_to_trailing_slash(client: httpx.AsyncClien
     assert response.headers["location"] == "/pypi/simple/django/"
 
 
+@pytest.mark.parametrize("name", ["//evil.example", "..%2F..%2Fx", "a%2Fb", "-bad", "x@y"])
+async def test_simple_redirect_rejects_names_that_are_not_projects(
+    client: httpx.AsyncClient, name: str
+) -> None:
+    response = await client.get(f"/pypi/simple/{name}", follow_redirects=False)
+    assert response.status_code in (400, 404)
+    assert "location" not in response.headers
+
+
 @respx.mock
 async def test_simple_index_returns_404_when_upstream_missing(client: httpx.AsyncClient) -> None:
     respx.get(SIMPLE_URL).respond(404)

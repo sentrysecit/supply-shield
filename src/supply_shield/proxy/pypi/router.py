@@ -8,6 +8,7 @@ proyecto (ADR 0006). El bloqueo por política es la tarea D1-3.
 
 import re
 from typing import Annotated
+from urllib.parse import quote
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -32,6 +33,8 @@ router = APIRouter(prefix="/pypi", tags=["pypi"])
 _log = structlog.get_logger(__name__)
 
 _HEX256 = re.compile(r"^[0-9a-f]{64}$")
+# Nombre de proyecto según PEP 508: letras, dígitos y ., _, - (sin separadores de ruta).
+_PROJECT_NAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
 _METADATA_SUFFIX = ".metadata"
 
 # Cómo responde el proxy a cada error del upstream: status y mensaje para el cliente.
@@ -92,10 +95,17 @@ async def simple_index(
 
 @router.get("/simple/{project}")
 async def simple_index_redirect(project: str, context: AuthDep) -> RedirectResponse:
-    """Redirige a la forma canónica con barra final que espera pip."""
+    """Redirige a la forma canónica con barra final que espera pip.
+
+    El destino es siempre una ruta relativa de este servicio: el nombre se valida
+    como nombre de proyecto PEP 508 y se escapa, así que no puede inyectar otro host.
+    """
     del context
+    if _PROJECT_NAME.fullmatch(project) is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid project name")
     return RedirectResponse(
-        url=f"{router.prefix}/simple/{project}/", status_code=status.HTTP_307_TEMPORARY_REDIRECT
+        url=f"{router.prefix}/simple/{quote(project, safe='')}/",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
 
 
