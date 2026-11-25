@@ -1,5 +1,7 @@
 """Unit tests for the shared upstream client and host allowlist."""
 
+import gzip
+
 import httpx
 import pytest
 import respx
@@ -8,6 +10,7 @@ from supply_shield.config import Settings
 from supply_shield.proxy.upstream import (
     UpstreamHostError,
     UpstreamRequestError,
+    UpstreamTooLargeError,
     build_upstream_client,
     upstream_get,
     validate_upstream_url,
@@ -150,3 +153,84 @@ async def test_upstream_get_raises_when_retries_exhausted() -> None:
         with pytest.raises(UpstreamRequestError):
             await upstream_get(client, url, settings)
     assert len(respx.calls) == 2
+
+
+@respx.mock
+async def test_upstream_get_retries_any_transport_error() -> None:
+    url = "https://registry.npmjs.org/foo"
+    respx.get(url).mock(
+        side_effect=[
+            httpx.ReadError("reset"),
+            httpx.RemoteProtocolError("bad frame"),
+            httpx.Response(200, json={"ok": True}),
+        ],
+    )
+    settings = _settings(upstream_max_retries=2)
+    async with build_upstream_client(settings) as client:
+        response = await upstream_get(client, url, settings)
+    assert response.status_code == 200
+    assert len(respx.calls) == 3
+
+
+@respx.mock
+async def test_upstream_get_wraps_read_error_after_retries() -> None:
+    url = "https://registry.npmjs.org/foo"
+    respx.get(url).mock(side_effect=httpx.ReadError("reset"))
+    settings = _settings(upstream_max_retries=0)
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamRequestError):
+            await upstream_get(client, url, settings)
+
+
+@respx.mock
+async def test_upstream_get_rejects_declared_size_over_limit() -> None:
+    url = "https://registry.npmjs.org/foo"
+    respx.get(url).respond(200, content=b"x" * 64)
+    settings = _settings(upstream_max_response_bytes=32)
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamTooLargeError):
+            await upstream_get(client, url, settings)
+
+
+@respx.mock
+async def test_upstream_get_cuts_undeclared_body_over_limit() -> None:
+    url = "https://registry.npmjs.org/foo"
+    respx.get(url).mock(return_value=httpx.Response(200, stream=httpx.ByteStream(b"x" * 64)))
+    settings = _settings(upstream_max_response_bytes=32)
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamTooLargeError):
+            await upstream_get(client, url, settings)
+
+
+@respx.mock
+async def test_upstream_get_limits_the_decoded_size() -> None:
+    """A small gzip body that inflates past the limit is cut too."""
+    url = "https://registry.npmjs.org/foo"
+    compressed = gzip.compress(b"x" * 4096)
+    respx.get(url).respond(200, content=compressed, headers={"content-encoding": "gzip"})
+    settings = _settings(upstream_max_response_bytes=1024)
+    assert len(compressed) < settings.upstream_max_response_bytes
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamTooLargeError):
+            await upstream_get(client, url, settings)
+
+
+@respx.mock
+async def test_upstream_get_returns_decoded_body_without_transfer_headers() -> None:
+    url = "https://registry.npmjs.org/foo"
+    respx.get(url).respond(
+        200,
+        content=gzip.compress(b'{"ok": true}'),
+        headers={"content-encoding": "gzip", "content-type": "application/json"},
+    )
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        response = await upstream_get(client, url, settings)
+    assert response.json() == {"ok": True}
+    assert "content-encoding" not in response.headers
+    assert response.headers["content-type"] == "application/json"
+
+
+def test_validate_rejects_unparseable_url() -> None:
+    with pytest.raises(UpstreamHostError, match="invalid upstream URL"):
+        validate_upstream_url("https://registry.npmjs.org/foo\nbar", ALLOWED)
