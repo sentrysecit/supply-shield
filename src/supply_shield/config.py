@@ -3,8 +3,9 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -59,6 +60,11 @@ class Settings(BaseSettings):
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
 
+    # URL base del proxy (D1-2). Solo esquema, host y puerto, sin prefijo de
+    # ecosistema; cada adaptador le añade su propio prefijo (p. ej. "/npm/") al
+    # reescribir las URLs de descarga. La barra final se quita. Ver ADR 0013.
+    proxy_base_url: str = "http://localhost:8000"
+
     # Heuristic risk rules. Thresholds live here so they can be changed without
     # touching the rule implementations.
     heuristics_cooldown_days: int = Field(default=30, ge=1)
@@ -83,6 +89,29 @@ class Settings(BaseSettings):
 
     # Directorio para almacenamiento de artefactos direccionado por hash.
     artifacts_dir: str = Field(default=".artifacts")
+
+    @field_validator("proxy_base_url")
+    @classmethod
+    def _normalize_proxy_base_url(cls, value: str) -> str:
+        """Exige una URL HTTP(S) absoluta, sin credenciales, query ni fragmento.
+
+        Se quita la barra final: las URLs reescritas se arman como
+        ``{proxy_base_url}/npm/...`` y una doble barra no coincidiría con las rutas.
+        """
+        candidate = value.strip()
+        parts = urlsplit(candidate)
+        try:
+            port = parts.port
+        except ValueError as error:
+            msg = "proxy_base_url has an invalid port"
+            raise ValueError(msg) from error
+        if parts.scheme not in {"http", "https"} or not parts.hostname or port == 0:
+            msg = "proxy_base_url must be an absolute http(s) URL, e.g. http://proxy:8000"
+            raise ValueError(msg)
+        if parts.username or parts.password or parts.query or parts.fragment:
+            msg = "proxy_base_url must not include credentials, a query or a fragment"
+            raise ValueError(msg)
+        return candidate.rstrip("/")
 
     @model_validator(mode="after")
     def _typosquatting_thresholds_ascend(self) -> Self:

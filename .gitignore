@@ -31,3 +31,7 @@ requirements-audit.txt
 Thumbs.db
 .omo
 .senpi/
+
+# Local planning docs and codebase-memory tooling index (not repo content)
+docs/stories/
+.codebase-memory/
