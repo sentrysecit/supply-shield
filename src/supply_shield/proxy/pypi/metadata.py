@@ -9,6 +9,7 @@ que consumen los detectores de riesgo y de vulnerabilidades.
 from datetime import UTC, datetime
 
 from supply_shield.core import Ecosystem, Maintainer, PackageRef, PackageRelease, UpstreamMetadata
+from supply_shield.core.naming import clean_version
 
 
 def _as_dict(value: object) -> dict[str, object]:
@@ -58,6 +59,17 @@ def _maintainers(info: dict[str, object]) -> tuple[Maintainer, ...]:
     )
 
 
+def _latest_version(info: dict[str, object]) -> str | None:
+    """``info.version`` si es una versión válida; si no (p. ej. ``"0.1 beta"``), ``None``."""
+    latest = info.get("version")
+    if not isinstance(latest, str):
+        return None
+    try:
+        return clean_version(latest)
+    except ValueError:
+        return None
+
+
 def parse_pypi_metadata(name: str, payload: object) -> UpstreamMetadata:
     """Convierte la respuesta de la JSON API de PyPI en ``UpstreamMetadata``."""
     data = _as_dict(payload)
@@ -73,8 +85,7 @@ def parse_pypi_metadata(name: str, payload: object) -> UpstreamMetadata:
             except ValueError:
                 continue
             versions.append(release)
-    latest = info.get("version")
-    package = PackageRef.of(Ecosystem.PYPI, name, latest if isinstance(latest, str) else None)
+    package = PackageRef.of(Ecosystem.PYPI, name, _latest_version(info))
     return UpstreamMetadata(
         package=package,
         versions=tuple(versions),

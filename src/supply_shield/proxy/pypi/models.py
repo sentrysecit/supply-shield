@@ -19,8 +19,9 @@ class DistributionFile(BaseModel):
 
     ``sha256`` es el hash de integridad del archivo; ``requires_python`` la
     versión de Python declarada; ``yanked``/``yanked_reason`` marcan una versión
-    retirada por el autor; y ``core_metadata``/``metadata_sha256`` describen la
-    metadata PEP 658 publicada junto al archivo.
+    retirada por el autor; ``core_metadata``/``metadata_sha256`` describen la
+    metadata PEP 658 publicada junto al archivo; y ``size``/``upload_time`` son el
+    tamaño en bytes y la fecha de subida de la PEP 700 (solo los trae el JSON).
     """
 
     model_config = FROZEN
@@ -33,12 +34,19 @@ class DistributionFile(BaseModel):
     yanked_reason: str | None = None
     core_metadata: bool = False
     metadata_sha256: str | None = None
+    size: int | None = Field(default=None, ge=0)
+    upload_time: str | None = None
 
 
 class SimpleProject(BaseModel):
-    """Proyecto del índice simple con la lista de sus archivos, tal cual el upstream."""
+    """Proyecto del índice simple con la lista de sus archivos, tal cual el upstream.
+
+    ``versions`` es la lista de versiones de la PEP 700; ``None`` si el upstream no
+    la publicó (índice HTML).
+    """
 
     model_config = FROZEN
 
     name: str
     files: tuple[DistributionFile, ...] = Field(default_factory=tuple)
+    versions: tuple[str, ...] | None = None

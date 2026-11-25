@@ -21,7 +21,11 @@ from supply_shield.core.request_context import RequestContext
 from supply_shield.proxy.download import open_upstream_download
 from supply_shield.proxy.pypi.accept import JSON_MEDIA_TYPE, choose_index_format
 from supply_shield.proxy.pypi.models import IndexFormat
-from supply_shield.proxy.pypi.registry import ProjectNotFoundError, PyPIRegistry
+from supply_shield.proxy.pypi.registry import (
+    InvalidProjectNameError,
+    ProjectNotFoundError,
+    PyPIRegistry,
+)
 from supply_shield.proxy.pypi.render import render_html, render_json
 from supply_shield.proxy.pypi.urls import upstream_file_url
 from supply_shield.proxy.upstream import (
@@ -75,10 +79,19 @@ async def simple_index(
     registry: RegistryDep,
     context: AuthDep,
 ) -> Response:
-    """Sirve el índice simple del proyecto en HTML (PEP 503) o JSON (PEP 691)."""
+    """Sirve el índice simple del proyecto en HTML (PEP 503) o JSON (PEP 691).
+
+    Un nombre que no cumple la PEP 503 responde 404, como un proyecto inexistente,
+    sin consultar el upstream.
+    """
     _log.info("pypi.index.request", package=project, project=context.project)
     try:
         parsed = await registry.fetch_index(project)
+    except InvalidProjectNameError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"invalid package name {project!r}",
+        ) from error
     except ProjectNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -110,7 +123,7 @@ async def _serve_file(
             registry.client,
             upstream_file_url(f"packages/{path}"),
             expected_sha256,
-            registry.settings,
+            registry.artifact_settings,
             algorithm="sha256",
         )
     except _HANDLED_ERRORS as error:

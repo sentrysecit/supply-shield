@@ -6,12 +6,14 @@ Supply-Shield actúa como *registry mirror* de PyPI ([ADR 0002](adr/0002-registr
 
 | Ruta | Qué hace |
 | --- | --- |
-| `GET /pypi/simple/<proyecto>/` | Índice simple del proyecto, en HTML (PEP 503) o JSON (PEP 691) según `Accept`. |
+| `GET /pypi/simple/<proyecto>/` | Índice simple del proyecto, en HTML (PEP 503) o JSON (PEP 691) según `Accept`. Un nombre que no cumple la PEP 503 responde 404. |
 | `GET /pypi/simple/<proyecto>` | Redirige (307) a la forma con barra final; lo hace Starlette (`redirect_slashes`). |
 | `GET /pypi/packages/sha256/<hex>/<ruta>` | Reenvía el artefacto verificando su SHA-256 mientras lo streamea. |
 | `GET /pypi/packages/<ruta>` | Reenvía el artefacto sin verificar (el índice no trajo hash). |
 
-El índice incluye la metadata PEP 658 (`data-core-metadata`), respeta las versiones *yanked* (`data-yanked`) y reescribe cada enlace a `/pypi/packages/sha256/<hex>/…`, conservando el fragmento `#sha256=`. El hash va en la ruta y no en una query porque pip y uv piden la metadata añadiendo `.metadata` a la URL; la metadata no se verifica con el hash del archivo, la comprueba el cliente con `data-core-metadata`. Las fechas de publicación y los mantenedores se toman de la JSON API de PyPI y se exponen como `UpstreamMetadata` al resto del sistema.
+El índice incluye la metadata PEP 658 (`data-core-metadata`), respeta las versiones *yanked* (`data-yanked`) y reescribe cada enlace a `/pypi/packages/sha256/<hex>/…`, conservando el fragmento `#sha256=`. Un archivo cuyo enlace no apunta a `https://files.pythonhosted.org/packages/` se quita del índice, para que el cliente no descargue nada sin pasar por el proxy. El JSON reenvía además `versions`, `size` y `upload-time` (PEP 700), que usa, por ejemplo, `uv --exclude-newer`. El hash va en la ruta y no en una query porque pip y uv piden la metadata añadiendo `.metadata` a la URL; la metadata no se verifica con el hash del archivo, la comprueba el cliente con `data-core-metadata`. Las fechas de publicación y los mantenedores se toman de la JSON API de PyPI y se exponen como `UpstreamMetadata` al resto del sistema.
+
+El tamaño máximo de un artefacto lo fija `SUPPLY_SHIELD_PYPI_MAX_ARTIFACT_BYTES` (4 GiB por defecto), aparte del límite general de 512 MiB, porque hay wheels más grandes (torch, CUDA).
 
 Todas las rutas exigen el token de proyecto ([ADR 0006](adr/0006-project-auth-tokens.md)) y cuelgan del prefijo `/pypi` ([ADR 0013](adr/0013-proxy-routes-with-per-ecosystem-prefix.md)). Todavía **no aplican bloqueos**: eso es la tarea D1-3.
 

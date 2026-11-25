@@ -1,6 +1,12 @@
 """Unit tests for parsing the upstream Simple Repository API (PEP 503/691)."""
 
-from supply_shield.proxy.pypi.parse import parse_simple_html, parse_simple_json
+import pytest
+
+from supply_shield.proxy.pypi.parse import (
+    parse_simple_html,
+    parse_simple_json,
+    parse_simple_versions,
+)
 
 HTML = """
 <!DOCTYPE html>
@@ -81,3 +87,37 @@ def test_parse_json_ignores_unusable_entries() -> None:
 def test_parse_json_tolerates_missing_files() -> None:
     assert parse_simple_json({"name": "django"}) == ()
     assert parse_simple_json("not a mapping") == ()
+
+
+def test_parse_json_reads_pep700_size_and_upload_time() -> None:
+    payload = {
+        "files": [
+            {
+                "filename": "x-1.0.whl",
+                "url": "https://files.pythonhosted.org/packages/ab/x-1.0.whl",
+                "size": 1234,
+                "upload-time": "2023-12-04T09:00:00.000000Z",
+            }
+        ]
+    }
+    (file,) = parse_simple_json(payload)
+    assert file.size == 1234
+    assert file.upload_time == "2023-12-04T09:00:00.000000Z"
+
+
+@pytest.mark.parametrize("size", [True, -1, "1234", 1.5, None])
+def test_parse_json_ignores_invalid_size(size: object) -> None:
+    entry = {"filename": "x-1.0.whl", "url": "https://x/x-1.0.whl", "size": size, "upload-time": ""}
+    (file,) = parse_simple_json({"files": [entry]})
+    assert file.size is None
+    assert file.upload_time is None
+
+
+def test_parse_versions_keeps_strings_only() -> None:
+    assert parse_simple_versions({"versions": ["4.2", "5.0", 6]}) == ("4.2", "5.0")
+
+
+def test_parse_versions_is_none_when_upstream_omits_it() -> None:
+    assert parse_simple_versions({"files": []}) is None
+    assert parse_simple_versions({"versions": "5.0"}) is None
+    assert parse_simple_versions("not a mapping") is None

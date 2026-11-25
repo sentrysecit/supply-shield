@@ -8,6 +8,7 @@ import httpx
 import pytest
 import respx
 
+from supply_shield.config import Settings
 from supply_shield.proxy.download import UpstreamIntegrityError
 from supply_shield.proxy.pypi.accept import JSON_MEDIA_TYPE
 
@@ -153,3 +154,94 @@ async def test_routes_require_a_project_token(pypi_client: PyPIClientFactory) ->
     assert index.status_code == 401
     assert file.status_code == 401
     assert not respx.calls
+
+
+def _settings(**overrides: object) -> Settings:
+    values: dict[str, object] = {
+        "_env_file": None,
+        "upstream_max_retries": 0,
+        "upstream_backoff_factor": 0.001,
+        "proxy_base_url": "http://testserver",
+    }
+    values.update(overrides)
+    return Settings.model_validate(values)
+
+
+@pytest.mark.parametrize("name", ["foo_", "-x", "%C3%B1andu"])
+@respx.mock
+async def test_simple_index_returns_404_for_invalid_name(
+    client: httpx.AsyncClient, name: str
+) -> None:
+    """Un nombre fuera de la PEP 503 es un proyecto inexistente, no un 500."""
+    response = await client.get(f"/pypi/simple/{name}/")
+    assert response.status_code == 404
+    assert "invalid package name" in response.json()["detail"]
+    assert not respx.calls
+
+
+@respx.mock
+async def test_simple_index_json_passes_pep700_fields(client: httpx.AsyncClient) -> None:
+    upstream = {
+        **SIMPLE_JSON,
+        "versions": ["5.0"],
+        "files": [
+            {
+                **SIMPLE_JSON["files"][0],  # type: ignore[index]
+                "size": len(FILE_BODY),
+                "upload-time": "2023-12-04T09:00:00.000000Z",
+            }
+        ],
+    }
+    respx.get(SIMPLE_URL).respond(200, json=upstream, headers=JSON_HEADERS)
+
+    response = await client.get("/pypi/simple/django/", headers={"Accept": JSON_MEDIA_TYPE})
+
+    payload = response.json()
+    assert payload["meta"] == {"api-version": "1.1"}
+    assert payload["versions"] == ["5.0"]
+    assert payload["files"][0]["size"] == len(FILE_BODY)
+    assert payload["files"][0]["upload-time"] == "2023-12-04T09:00:00.000000Z"
+
+
+@respx.mock
+async def test_simple_index_drops_links_outside_the_proxy(client: httpx.AsyncClient) -> None:
+    evil = '<a href="https://cdn.example/evil-1.0.whl#sha256=00">evil-1.0.whl</a>'
+    respx.get(SIMPLE_URL).respond(
+        200, text=SIMPLE_HTML.replace("</body>", f"{evil}</body>"), headers=HTML_HEADERS
+    )
+
+    response = await client.get("/pypi/simple/django/")
+
+    assert response.status_code == 200
+    assert PROXY_FILE in response.text
+    assert "cdn.example" not in response.text
+
+
+@respx.mock
+async def test_download_uses_the_pypi_artifact_limit(pypi_client: PyPIClientFactory) -> None:
+    """Una wheel mayor que el límite general (npm) se sirve si cabe en el de PyPI."""
+    respx.get(FILE_URL).respond(200, content=FILE_BODY)
+    settings = _settings(upstream_max_response_bytes=16, pypi_max_artifact_bytes=1024)
+    async with pypi_client(settings) as client:
+        response = await client.get(HASHED_PATH)
+    assert response.status_code == 200
+    assert response.content == FILE_BODY
+
+
+@respx.mock
+async def test_download_over_the_pypi_artifact_limit_is_502(
+    pypi_client: PyPIClientFactory,
+) -> None:
+    respx.get(FILE_URL).respond(200, content=FILE_BODY)
+    settings = _settings(upstream_max_response_bytes=4096, pypi_max_artifact_bytes=16)
+    async with pypi_client(settings) as client:
+        response = await client.get(HASHED_PATH)
+    assert response.status_code == 502
+    assert response.json()["detail"] == "upstream response too large"
+
+
+def test_default_pypi_artifact_limit_fits_large_wheels() -> None:
+    """La wheel de torch 2.5.1 para Linux pesa 864 MiB: cabe con los ajustes por defecto."""
+    settings = Settings.model_validate({"_env_file": None})
+    assert settings.pypi_max_artifact_bytes > 864 * 2**20
+    assert settings.pypi_max_artifact_bytes > settings.upstream_max_response_bytes

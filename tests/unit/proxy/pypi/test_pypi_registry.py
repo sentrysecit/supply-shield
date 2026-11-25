@@ -5,7 +5,11 @@ import pytest
 import respx
 
 from supply_shield.config import Settings
-from supply_shield.proxy.pypi.registry import ProjectNotFoundError, PyPIRegistry
+from supply_shield.proxy.pypi.registry import (
+    InvalidProjectNameError,
+    ProjectNotFoundError,
+    PyPIRegistry,
+)
 from supply_shield.proxy.upstream import UpstreamRequestError, build_upstream_client
 
 SIMPLE_URL = "https://pypi.org/simple/django/"
@@ -106,3 +110,41 @@ async def test_registry_exposes_client_and_settings() -> None:
         registry = PyPIRegistry(client, settings)
         assert isinstance(registry.client, httpx.AsyncClient)
         assert registry.settings is settings
+        assert registry.artifact_settings.upstream_max_response_bytes == (
+            settings.pypi_max_artifact_bytes
+        )
+        assert registry.artifact_settings.upstream_hosts == settings.upstream_hosts
+
+
+@respx.mock
+async def test_fetch_index_keeps_pep700_versions_from_json() -> None:
+    payload = {**SIMPLE_JSON, "versions": ["4.2", "5.0"]}
+    respx.get(SIMPLE_URL).respond(
+        200, json=payload, headers={"content-type": "application/vnd.pypi.simple.v1+json"}
+    )
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        project = await PyPIRegistry(client, settings).fetch_index("django")
+    assert project.versions == ("4.2", "5.0")
+
+
+@respx.mock
+async def test_fetch_index_from_html_has_no_versions() -> None:
+    respx.get(SIMPLE_URL).respond(200, text=SIMPLE_HTML, headers={"content-type": "text/html"})
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        project = await PyPIRegistry(client, settings).fetch_index("django")
+    assert project.versions is None
+
+
+@pytest.mark.parametrize("name", ["foo_", "-x", "ñandu", ""])
+@respx.mock
+async def test_invalid_name_raises_without_calling_upstream(name: str) -> None:
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        registry = PyPIRegistry(client, settings)
+        with pytest.raises(InvalidProjectNameError):
+            await registry.fetch_index(name)
+        with pytest.raises(InvalidProjectNameError):
+            await registry.fetch_metadata(name)
+    assert not respx.calls

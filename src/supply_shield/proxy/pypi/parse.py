@@ -4,7 +4,8 @@ Un único modelo ``DistributionFile`` abstrae las diferencias entre formatos: lo
 atributos ``data-requires-python``, ``data-core-metadata`` (PEP 658) y
 ``data-yanked`` del HTML son las claves ``requires-python``, ``core-metadata`` y
 ``yanked`` del JSON. El hash SHA-256 se toma del fragmento ``#sha256=`` del
-``href`` en HTML y de ``hashes.sha256`` en JSON.
+``href`` en HTML y de ``hashes.sha256`` en JSON. El tamaño, la fecha de subida y la
+lista de versiones de la PEP 700 solo existen en el JSON.
 """
 
 from html.parser import HTMLParser
@@ -98,6 +99,13 @@ def parse_simple_html(text: str) -> tuple[DistributionFile, ...]:
     return tuple(file for file in files if file is not None)
 
 
+def _size(value: object) -> int | None:
+    """Tamaño en bytes de la PEP 700: un entero no negativo (``bool`` no cuenta)."""
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
+
+
 def parse_simple_json(payload: object) -> tuple[DistributionFile, ...]:
     """Convierte el índice simple JSON (PEP 691) en la lista de archivos."""
     raw_files = _as_dict(payload).get("files")
@@ -114,6 +122,7 @@ def parse_simple_json(payload: object) -> tuple[DistributionFile, ...]:
         core_metadata, metadata_sha256 = _core_metadata(record.get("core-metadata"))
         yanked, yanked_reason = _yanked(record.get("yanked"))
         requires_python = record.get("requires-python")
+        upload_time = record.get("upload-time")
         files.append(
             DistributionFile(
                 filename=filename,
@@ -124,6 +133,16 @@ def parse_simple_json(payload: object) -> tuple[DistributionFile, ...]:
                 yanked_reason=yanked_reason,
                 core_metadata=core_metadata,
                 metadata_sha256=metadata_sha256,
+                size=_size(record.get("size")),
+                upload_time=upload_time if isinstance(upload_time, str) and upload_time else None,
             )
         )
     return tuple(files)
+
+
+def parse_simple_versions(payload: object) -> tuple[str, ...] | None:
+    """Lista ``versions`` del índice JSON (PEP 700), o ``None`` si el upstream no la trae."""
+    raw_versions = _as_dict(payload).get("versions")
+    if not isinstance(raw_versions, list):
+        return None
+    return tuple(version for version in raw_versions if isinstance(version, str))

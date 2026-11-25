@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 
+import pytest
+
 from supply_shield.core import Ecosystem, Maintainer
 from supply_shield.proxy.pypi.metadata import parse_pypi_metadata
 
@@ -70,3 +72,16 @@ def test_tolerates_garbage_payload() -> None:
     assert metadata.versions == ()
     assert metadata.maintainers == ()
     assert metadata.package.name == "pkg"
+
+
+@pytest.mark.parametrize("latest", ["0.1 beta", "", 5, None])
+def test_invalid_latest_version_is_dropped_instead_of_failing(latest: object) -> None:
+    """Una ``info.version`` anterior a PEP 440 no tumba la metadata del paquete."""
+    payload = {
+        "info": {"version": latest, "author": "Someone"},
+        "releases": {"1.0": [{"upload_time_iso_8601": "2020-01-01T00:00:00Z"}]},
+    }
+    metadata = parse_pypi_metadata("pkg", payload)
+    assert metadata.package.version is None
+    assert [release.version for release in metadata.versions] == ["1.0"]
+    assert metadata.maintainers == (Maintainer(name="Someone", email=None),)
