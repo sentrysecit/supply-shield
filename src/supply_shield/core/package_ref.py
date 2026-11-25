@@ -20,12 +20,19 @@ def _coerce_ecosystem(value: object) -> Ecosystem | None:
 
 
 class PackageRef(BaseModel):
-    """Versión de paquete que el firewall está revisando."""
+    """Versión de paquete que el firewall está revisando.
+
+    ``name`` es el nombre canónico: npm en minúsculas y PyPI según la PEP 503.
+    ``registry_name`` es el que se consulta en OSV. En npm conserva las
+    mayúsculas del nombre publicado, porque OSV las distingue (``Haraka`` no es
+    ``haraka``). En PyPI coincide con ``name``.
+    """
 
     model_config = FROZEN
 
     ecosystem: Ecosystem
     name: str
+    registry_name: str = ""
     version: str | None = None
 
     @model_validator(mode="before")
@@ -37,7 +44,15 @@ class PackageRef(BaseModel):
         ecosystem = _coerce_ecosystem(updated.get("ecosystem"))
         name = updated.get("name")
         if ecosystem is not None and isinstance(name, str):
-            updated["name"] = normalize_package_name(ecosystem, name)
+            normalized = normalize_package_name(ecosystem, name)
+            recorded = updated.get("registry_name")
+            if isinstance(recorded, str) and recorded.strip():
+                updated["registry_name"] = recorded.strip()
+            elif ecosystem is Ecosystem.NPM:
+                updated["registry_name"] = name.strip()
+            else:
+                updated["registry_name"] = normalized
+            updated["name"] = normalized
         version = updated.get("version")
         if isinstance(version, str):
             updated["version"] = clean_version(version)
