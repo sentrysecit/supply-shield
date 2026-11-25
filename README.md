@@ -12,7 +12,7 @@ Funciona como **registry mirror**: los clientes apuntan `registry=` (en `.npmrc`
 
 ## Estado del proyecto
 
-🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), la API de administración (`api/admin/`, ver [docs/admin-api.md](docs/admin-api.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)) y las herramientas de calidad (hooks, CI y ADRs). El proxy y los demás analizadores todavía no están implementados: no hay un endpoint que evalúe un paquete.
+🚧 **En construcción.** Hoy están la aplicación FastAPI con `/healthz` y `/readyz`, los modelos compartidos (`core/`), la caché en memoria, la autenticación por proyecto, el motor de políticas (`policy/`, ver [docs/policy.md](docs/policy.md)), la API de administración (`api/admin/`, ver [docs/admin-api.md](docs/admin-api.md)), el detector de typosquatting (`analyzers/typosquatting/`, ver [docs/typosquatting.md](docs/typosquatting.md)), el espejo de PyPI (`proxy/pypi/`, ver [docs/pypi.md](docs/pypi.md)) y las herramientas de calidad (hooks, CI y ADRs). El espejo de npm, los detectores de vulnerabilidades y el motor de evaluación todavía no están implementados: las rutas del proxy aún no aplican bloqueos.
 
 ## Requisitos
 
@@ -136,7 +136,7 @@ supply-shield/
 │   ├── db/              # PostgreSQL: modelos, sesión y repositorio de la API de admin
 │   ├── core/            # modelos compartidos: paquete, hallazgo y decisión
 │   ├── cache/           # caché en memoria (LRU y tiempo de vida)
-│   ├── proxy/           # adaptadores de registro: npm/ y pypi/
+│   ├── proxy/           # adaptadores de registro: npm/ y pypi/ (espejo del índice simple)
 │   ├── analyzers/       # vulnerabilities/ (OSV) y typosquatting/
 │   ├── policy/          # motor de políticas de bloqueo
 │   └── sbom/            # generación de SBOM CycloneDX
@@ -155,6 +155,7 @@ supply-shield/
 │   ├── policy.md        # política de bloqueo por defecto y cómo ajustarla
 │   ├── admin-api.md     # API de administración: excepciones, tokens, recarga, decisiones y SBOMs
 │   ├── typosquatting.md # cómo funciona el detector de typosquatting
+│   ├── pypi.md          # espejo de PyPI: rutas, configuración de clientes y límites
 │   ├── results/         # resultados medidos (typosquatting.md: precisión, recall y umbral)
 │   └── adr/             # registros de decisiones de arquitectura
 ├── .github/             # CI, CodeQL, Dependabot, plantillas y refresco semanal de data/popular
@@ -175,6 +176,7 @@ Toda la configuración se lee de variables de entorno con prefijo `SUPPLY_SHIELD
 - [docs/policy.md](docs/policy.md): política de bloqueo, valores por defecto y excepciones.
 - [docs/admin-api.md](docs/admin-api.md): API de administración (token, excepciones, tokens de proyecto, recarga de la política, decisiones y SBOMs).
 - [docs/typosquatting.md](docs/typosquatting.md): técnicas, puntaje y lista de permitidos del detector de typosquatting.
+- [docs/pypi.md](docs/pypi.md): espejo de PyPI: rutas, configuración de `pip`/`uv` y límites.
 - [docs/results/typosquatting.md](docs/results/typosquatting.md): medición del detector de typosquatting con ataques reales (precisión, recall, falsos positivos y umbral).
 - [docs/adr/](docs/adr/): registros de decisiones de arquitectura (ADR).
 - [SECURITY.md](SECURITY.md): cómo reportar vulnerabilidades.
@@ -195,6 +197,7 @@ Un ADR es un Markdown corto que guarda **por qué** se tomó una decisión de di
 | [0010](docs/adr/0010-project-tokens-admin-api.md) | Los tokens de proyecto se crean y revocan desde la API de administración con el formato `ssp_<key_id>_<secreto>`: el `key_id` público permite buscarlos sin probar todos los hashes. Se muestran una sola vez y revocar no borra. La autenticación del proxy todavía no los lee. |
 | [0011](docs/adr/0011-popular-list-newcomer-quarantine.md) | Un nombre nuevo que imita a un paquete popular no entra a la lista popular hasta que se aprueba en la lista de permitidos. |
 | [0012](docs/adr/0012-typosquatting-threshold-measured.md) | El typosquatting sigue bloqueando desde 0,85: medido con 503 typosquats reales de OpenSSF y ~41 000 paquetes legítimos, el F1 es plano entre 0,83 y 0,95, y 0,85 es el que más ataques bloquea dentro de ese rango. |
+| [0015](docs/adr/0015-pypi-simple-proxy.md) | El espejo de PyPI vive bajo `/pypi/`, sirve el índice simple (PEP 503/691) con PEP 658 y *yanked*, reescribe las URLs a `/pypi/packages/sha256/<hash>/…` conservando `#sha256=`, y verifica SHA-256 al reenviar. Exige token de proyecto; el bloqueo llega con D1-3. |
 
 ## Licencia
 

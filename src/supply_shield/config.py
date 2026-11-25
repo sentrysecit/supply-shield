@@ -54,6 +54,9 @@ class Settings(BaseSettings):
         "files.pythonhosted.org",
     )
     upstream_max_response_bytes: int = Field(default=536_870_912, ge=1)  # 512 MiB
+    # Límite propio para las wheels y sdists de PyPI, que se reenvían en streaming
+    # sin cargarse en memoria: las de torch o CUDA pasan de 512 MiB.
+    pypi_max_artifact_bytes: int = Field(default=4_294_967_296, ge=1)  # 4 GiB
     upstream_connect_timeout_seconds: float = Field(default=10.0, gt=0)
     upstream_read_timeout_seconds: float = Field(default=30.0, gt=0)
     upstream_max_retries: int = Field(default=3, ge=0)
