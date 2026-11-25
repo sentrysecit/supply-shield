@@ -1,0 +1,13 @@
+"""Tipos de las partes de ``cvss`` que llama el detector de vulnerabilidades.
+
+El paquete publicado no trae marcador ``py.typed``, así que estos stubs cubren
+solo el puntaje base de ``CVSS3`` y ``CVSS4``.
+"""
+
+class CVSS3:
+    def __init__(self, vector: str) -> None: ...
+    def scores(self) -> tuple[float, float, float]: ...
+
+class CVSS4:
+    def __init__(self, vector: str) -> None: ...
+    def scores(self) -> tuple[float]: ...

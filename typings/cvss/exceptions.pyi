@@ -1,0 +1,3 @@
+"""``CVSSError`` es la base de cada fallo de lectura o de puntaje en ``cvss``."""
+
+class CVSSError(Exception): ...
