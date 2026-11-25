@@ -79,3 +79,17 @@ def test_to_upstream_metadata_skips_invalid_time() -> None:
     }
     metadata = to_upstream_metadata(packument)
     assert metadata.versions[0].published_at is None
+
+
+def test_to_upstream_metadata_ignores_fields_with_unexpected_types() -> None:
+    packument = {
+        "name": "odd-pkg",
+        "versions": None,
+        "time": "yesterday",
+        "dist-tags": ["latest"],
+        "maintainers": 42,
+    }
+    metadata = to_upstream_metadata(packument)
+    assert metadata.package.name == "odd-pkg"
+    assert metadata.versions == ()
+    assert metadata.maintainers == ()

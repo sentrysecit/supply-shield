@@ -35,7 +35,7 @@ def live_server() -> Generator[str]:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
 
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # noqa: S603
         [
             sys.executable,
             "-m",

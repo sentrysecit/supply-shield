@@ -1,77 +1,120 @@
-"""Unit tests for package name validation in npm proxy routes (S5-S7)."""
+"""Unit tests for package name validation and authentication in npm proxy routes."""
 
-from collections.abc import AsyncIterator
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 
 import httpx
 import pytest
 import respx
 
-from supply_shield.config import Settings
-from supply_shield.main import create_app
-from supply_shield.proxy.npm.packument import validate_package_name
+from supply_shield.proxy.npm.packument import packument_url, validate_package_name
 
-
-@pytest.fixture
-async def client() -> AsyncIterator[httpx.AsyncClient]:
-    """HTTP client wired to the ASGI app, without network or .env."""
-    app = create_app(Settings(_env_file=None))
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
-        yield c
+NpmClientFactory = Callable[..., AbstractAsyncContextManager[httpx.AsyncClient]]
 
 
 # --- validate_package_name unit tests ----------------------------------------
 
 
-def test_validate_package_name_rejects_path_traversal() -> None:
-    """S5 (unidad): nombre con ``../`` lanza ValueError."""
-    with pytest.raises(ValueError, match="no permitida"):
-        validate_package_name("../etc/passwd")
+@pytest.mark.parametrize(
+    "name",
+    [
+        "express",
+        "@types/node",
+        "lodash.merge",
+        "JSONStream",
+        "socket.io",
+        "a~b",
+        "@scope/-dash",
+        "x" * 214,
+    ],
+)
+def test_validate_package_name_accepts_npm_names(name: str) -> None:
+    validate_package_name(name)
 
 
-def test_validate_package_name_rejects_null_byte() -> None:
-    """S6 (unidad): nombre con byte nulo lanza ValueError."""
-    with pytest.raises(ValueError, match="no permitida"):
-        validate_package_name("pkg\x00evil")
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../etc/passwd",
+        "..",
+        "pkg\x00evil",
+        "foo\nbar",
+        "foo bar",
+        "-/v1/search?text=foo",
+        "a?b",
+        "a#b",
+        "a%2fb",
+        "%2e%2e",
+        "express/latest",
+        "@scope",
+        "@/name",
+        "@scope/name/extra",
+        ".hidden",
+        "_private",
+        "ñoño-pkg",
+        "@élite/lib",
+        "日本語パッケージ",
+        "",
+        "x" * 215,
+    ],
+)
+def test_validate_package_name_rejects_anything_else(name: str) -> None:
+    with pytest.raises(ValueError, match="invalid npm package name"):
+        validate_package_name(name)
 
 
-def test_validate_package_name_accepts_valid_unicode() -> None:
-    """S7 (unidad): nombre Unicode sin secuencias peligrosas no lanza."""
-    validate_package_name("ñoño-pkg")
-    validate_package_name("@élite/lib")
-    validate_package_name("日本語パッケージ")
+def test_packument_url_percent_encodes_the_name() -> None:
+    assert packument_url("@types/node") == "https://registry.npmjs.org/@types/node"
+    assert packument_url("it's(ok)") == "https://registry.npmjs.org/it%27s%28ok%29"
 
 
 # --- route-level validation tests --------------------------------------------
 
 
 @respx.mock
-async def test_packument_returns_400_for_path_traversal(client: httpx.AsyncClient) -> None:
-    """S5 (ruta): ``../evil`` en la URL del packument → 400 sin reenviar al upstream."""
-    response = await client.get("/npm/..%2fevil")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/npm/..%2fevil",
+        "/npm/pkg%00evil",
+        "/npm/foo%0Abar",
+        "/npm/-%252Fv1%252Fsearch%253Ftext%253Dfoo",
+        "/npm/%252e%252e",
+        "/npm/express/latest",
+        "/npm/..%2fevil/-/evil-1.0.0.tgz",
+        "/npm/pkg%00evil/-/pkg-1.0.0.tgz",
+        "/npm/foo%0Abar/-/foo-1.0.0.tgz",
+        "/npm/scope/name/-/name-1.0.0.tgz",
+    ],
+)
+async def test_invalid_names_return_400_without_upstream_call(
+    client: httpx.AsyncClient, path: str
+) -> None:
+    response = await client.get(path)
     assert response.status_code == 400
+    assert response.json() == {"error": "invalid package name"}
+    assert not respx.calls
+
+
+# --- authentication ----------------------------------------------------------
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "path",
+    ["/npm/express", "/npm/@types%2fnode", "/npm/express/-/express-4.18.2.tgz"],
+)
+async def test_routes_require_a_project_token(npm_client: NpmClientFactory, path: str) -> None:
+    async with npm_client(token=None) as client:
+        response = await client.get(path)
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer, Basic"
     assert not respx.calls
 
 
 @respx.mock
-async def test_packument_returns_400_for_null_byte(client: httpx.AsyncClient) -> None:
-    """S6 (ruta): nombre con null byte URL-encoded → 400 sin reenviar al upstream."""
-    response = await client.get("/npm/pkg%00evil")
-    assert response.status_code == 400
-    assert not respx.calls
-
-
-@respx.mock
-async def test_tarball_returns_400_for_path_traversal(client: httpx.AsyncClient) -> None:
-    """S5 (tarball): nombre con ``../`` → 400 sin reenviar al upstream."""
-    response = await client.get("/npm/..%2fevil/-/evil-1.0.0.tgz")
-    assert response.status_code == 400
-    assert not respx.calls
-
-
-@respx.mock
-async def test_tarball_returns_400_for_null_byte(client: httpx.AsyncClient) -> None:
-    """S6 (tarball): nombre con null byte → 400 sin reenviar al upstream."""
-    response = await client.get("/npm/pkg%00evil/-/pkg-1.0.0.tgz")
-    assert response.status_code == 400
+async def test_routes_reject_an_invalid_token(npm_client: NpmClientFactory) -> None:
+    async with npm_client(token="not-the-token") as client:  # noqa: S106 - token de prueba
+        response = await client.get("/npm/express")
+    assert response.status_code == 401
     assert not respx.calls

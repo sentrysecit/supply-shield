@@ -19,6 +19,8 @@ from supply_shield.config import Settings
 from supply_shield.main import create_app
 from supply_shield.proxy.npm.packument import rewrite_tarballs
 
+_TOKEN = "npm-logging-token"  # noqa: S105 - token de prueba
+
 _TARBALL_BYTES = b"express-tarball-logging-test"
 _RAW_DIGEST = hashlib.sha512(_TARBALL_BYTES).digest()
 _INTEGRITY = f"sha512-{base64.b64encode(_RAW_DIGEST).decode()}"
@@ -38,13 +40,23 @@ _PACKUMENT = {
 }
 
 
+class _TokenStore:
+    async def verify(self, token: str) -> str | None:
+        return "logging-tests" if token == _TOKEN else None
+
+
 @pytest.fixture
 async def client() -> AsyncIterator[httpx.AsyncClient]:
-    """HTTP client wired to the ASGI app, without network or .env."""
+    """Cliente contra la app completa, sin red ni ``.env``, con un token de proyecto."""
     app = create_app(Settings(_env_file=None))
+    app.state.token_store = _TokenStore()
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+    headers = {"Authorization": f"Bearer {_TOKEN}"}
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", headers=headers
+    ) as c:
         yield c
+    await app.state.upstream_client.aclose()
 
 
 # --- S9: packument request logs -----------------------------------------------
