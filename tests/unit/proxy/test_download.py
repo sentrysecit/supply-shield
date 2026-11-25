@@ -1,5 +1,7 @@
 """Unit tests for the streaming download helper with SHA-512 verification."""
 
+import gzip
+import hashlib
 from hashlib import sha512
 
 import httpx
@@ -10,6 +12,7 @@ from supply_shield.config import Settings
 from supply_shield.proxy.download import (
     UpstreamIntegrityError,
     UpstreamTooLargeError,
+    open_upstream_download,
     stream_upstream,
 )
 from supply_shield.proxy.upstream import (
@@ -130,3 +133,102 @@ async def test_stream_succeeds_under_size_limit() -> None:
     async with build_upstream_client(settings) as client:
         received = await _collect(client, URL, expected, settings)
     assert received == body
+
+
+# --- open_upstream_download -------------------------------------------------
+
+
+@respx.mock
+async def test_open_requests_identity_encoding() -> None:
+    body = b"artifact"
+    route = respx.get(URL).respond(200, content=body)
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        download = await open_upstream_download(client, URL, sha512(body).hexdigest(), settings)
+        received = b"".join([chunk async for chunk in download.iter_verified()])
+    assert received == body
+    assert route.calls[0].request.headers["accept-encoding"] == "identity"
+
+
+@respx.mock
+async def test_open_rejects_compressed_response_before_reading() -> None:
+    respx.get(URL).respond(
+        200, content=gzip.compress(b"artifact"), headers={"content-encoding": "gzip"}
+    )
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamRequestError, match="content-encoding"):
+            await open_upstream_download(client, URL, "0" * 128, settings)
+
+
+@respx.mock
+async def test_open_accepts_explicit_identity_encoding() -> None:
+    body = b"identity"
+    respx.get(URL).respond(200, content=body, headers={"content-encoding": "identity"})
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        received = await _collect(client, URL, sha512(body).hexdigest(), settings)
+    assert received == body
+
+
+@respx.mock
+async def test_open_wraps_transport_errors() -> None:
+    respx.get(URL).mock(side_effect=httpx.ConnectError("refused"))
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamRequestError):
+            await open_upstream_download(client, URL, "0" * 128, settings)
+
+
+@respx.mock
+async def test_open_raises_status_errors_before_the_body_is_read() -> None:
+    respx.get(URL).respond(503)
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        with pytest.raises(UpstreamRequestError, match="503"):
+            await open_upstream_download(client, URL, "0" * 128, settings)
+
+
+@respx.mock
+async def test_iter_verified_cuts_undeclared_body_over_limit() -> None:
+    respx.get(URL).mock(return_value=httpx.Response(200, stream=httpx.ByteStream(b"x" * 64)))
+    settings = _settings(upstream_max_response_bytes=32)
+    async with build_upstream_client(settings) as client:
+        download = await open_upstream_download(client, URL, "0" * 128, settings)
+        with pytest.raises(UpstreamTooLargeError):
+            async for _ in download.iter_verified():
+                pass
+
+
+@respx.mock
+async def test_verifies_with_sha1_when_asked() -> None:
+    body = b"legacy-artifact"
+    respx.get(URL).respond(200, content=body)
+    expected = hashlib.sha1(body, usedforsecurity=False).hexdigest()
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        download = await open_upstream_download(client, URL, expected, settings, algorithm="sha1")
+        received = b"".join([chunk async for chunk in download.iter_verified()])
+    assert received == body
+
+
+@respx.mock
+async def test_sha1_mismatch_raises() -> None:
+    respx.get(URL).respond(200, content=b"tampered")
+    expected = hashlib.sha1(b"original", usedforsecurity=False).hexdigest()
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        download = await open_upstream_download(client, URL, expected, settings, algorithm="sha1")
+        with pytest.raises(UpstreamIntegrityError, match="SHA1"):
+            async for _ in download.iter_verified():
+                pass
+
+
+@respx.mock
+async def test_aclose_releases_an_unread_download() -> None:
+    respx.get(URL).respond(200, content=b"never-read")
+    settings = _settings()
+    async with build_upstream_client(settings) as client:
+        download = await open_upstream_download(client, URL, "0" * 128, settings)
+        await download.aclose()
+        await download.aclose()

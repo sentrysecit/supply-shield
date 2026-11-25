@@ -45,8 +45,8 @@ class Technique(StrEnum):
 class TyposquattingWeights(BaseModel):
     """Peso de cada técnica y longitudes mínimas para aplicarlas.
 
-    Los valores son provisionales: D4-6 los recalibra con un dataset etiquetado.
-    ``docs/typosquatting.md`` explica cada uno.
+    ``docs/typosquatting.md`` explica cada uno. Si cambian, hay que volver a medir el
+    detector (``eval/typosquatting/``, ``docs/results/typosquatting.md``).
     """
 
     model_config = FROZEN

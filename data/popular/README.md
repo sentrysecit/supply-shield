@@ -42,3 +42,13 @@ uv run python scripts/fetch_popular.py --ecosystem pypi   # solo uno
 ```
 
 El script solo reescribe un archivo si cambian los nombres o su orden. El workflow `Refresh popular packages` lo corre cada lunes y abre un PR cuando hay cambios.
+
+## Cuarentena de entrantes
+
+Estar en la lista exime a un nombre del detector, así que no cualquiera entra. El script compara cada nombre nuevo con la lista anterior y deja **en cuarentena** al que imita a un paquete que ya era popular: no lo escribe, y su lugar lo toma el siguiente del ranking. Con `--report <archivo>` deja en Markdown quién entra, quién sale y quién quedó en cuarentena; el workflow lo usa como cuerpo del PR.
+
+```bash
+uv run python scripts/fetch_popular.py --report reporte.md
+```
+
+Para aprobar un nombre legítimo en cuarentena, agrégalo a [`data/typosquatting/allowlist.yaml`](../typosquatting/allowlist.yaml) con su razón, por PR. El siguiente refresco lo admite. Más detalles: [ADR 0011](../../docs/adr/0011-popular-list-newcomer-quarantine.md).

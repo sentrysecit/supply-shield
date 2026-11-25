@@ -2,16 +2,21 @@
 
 El índice que sirve Supply-Shield no puede entregar los enlaces originales de
 ``files.pythonhosted.org``: el cliente debe descargar a través del proxy. Cada
-enlace se reescribe conservando el fragmento ``#sha256=`` (lo que pip lee para
-``--require-hashes``) y añadiendo el mismo hash como query ``?sha256=`` para que
-el proxy lo verifique al reenviar los bytes.
+enlace se reescribe a ``{base}/pypi/packages/sha256/<hash>/<ruta>`` conservando el
+fragmento ``#sha256=`` (lo que pip lee para ``--require-hashes``). El hash viaja en
+la ruta y no en una query porque pip y uv piden la metadata PEP 658 añadiendo
+``.metadata`` al final de la URL sin fragmento: con una query quedaría
+``?sha256=<hash>.metadata`` y el proxy no podría resolverla.
 """
 
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 from supply_shield.proxy.pypi.models import DistributionFile
 
 FILES_HOST = "files.pythonhosted.org"
+PREFIX = "/pypi"
+_PACKAGES = "packages/"
+HASHED_SEGMENT = "sha256"
 
 
 def is_proxyable_file_url(url: str) -> bool:
@@ -23,17 +28,19 @@ def is_proxyable_file_url(url: str) -> bool:
 def proxy_file_url(base_url: str, file: DistributionFile) -> str:
     """Reescribe la URL de ``file`` para que pase por el proxy.
 
-    Las URLs que no apuntan al host de archivos conocido se dejan intactas. Al
-    reescribir se conserva el ``#sha256=`` y se agrega ``?sha256=`` para la
-    verificación del proxy.
+    ``base_url`` es el host del proxy sin prefijo (``SUPPLY_SHIELD_PROXY_BASE_URL``).
+    Las URLs que no apuntan al host de archivos conocido se dejan intactas. Si el
+    archivo trae SHA-256, va en la ruta para que el proxy lo verifique al reenviar,
+    y también como fragmento ``#sha256=`` para pip.
     """
     if not is_proxyable_file_url(file.url):
         return file.url
-    path = urlsplit(file.url).path
-    target = urljoin(base_url, path.lstrip("/"))
-    if file.sha256:
-        target = f"{target}?sha256={file.sha256}#sha256={file.sha256}"
-    return target
+    path = urlsplit(file.url).path.lstrip("/")
+    root = f"{base_url.rstrip('/')}{PREFIX}"
+    if not path.startswith(_PACKAGES) or not file.sha256:
+        return f"{root}/{path}"
+    rest = path.removeprefix(_PACKAGES)
+    return f"{root}/{_PACKAGES}{HASHED_SEGMENT}/{file.sha256}/{rest}#sha256={file.sha256}"
 
 
 def upstream_file_url(path: str) -> str:

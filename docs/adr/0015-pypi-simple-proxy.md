@@ -1,6 +1,6 @@
-# 0011. Espejo de PyPI: índice simple (PEP 503/691), PEP 658 y verificación SHA-256
+# 0015. Espejo de PyPI: índice simple (PEP 503/691), PEP 658 y verificación SHA-256
 
-- **Estado**: Propuesto
+- **Estado**: Aceptado
 - **Fecha**: 2026-11-14
 
 ## Contexto
@@ -15,26 +15,26 @@ Hay que resolver varias piezas del protocolo de PyPI: el índice simple en HTML 
 
 **Formato servido.** Se elige según el header `Accept` del cliente: JSON si pide explícitamente un tipo JSON con un `q` mayor o igual al del HTML, y HTML en cualquier otro caso (sin header, solo `*/*`, o HTML preferido). Se responden los *media types* de PEP 691 (`application/vnd.pypi.simple.v1+json`) y PEP 503 (`text/html`).
 
-**Reescritura de URLs.** Los enlaces a `files.pythonhosted.org` se reescriben a `/packages/<ruta>` del proxy, conservando el fragmento `#sha256=` (lo que lee pip para `--require-hashes`) y añadiendo el mismo hash como `?sha256=` para que el proxy lo verifique al reenviar. Una URL de archivo que no apunte a ese host se deja intacta.
+**Reescritura de URLs.** Los enlaces a `files.pythonhosted.org` se reescriben a `{SUPPLY_SHIELD_PROXY_BASE_URL}/pypi/packages/sha256/<hash>/<ruta>`, conservando el fragmento `#sha256=` (lo que lee pip para `--require-hashes`). El hash va en la ruta y no en una query: pip y uv derivan la URL de la metadata PEP 658 como `<url sin fragmento>.metadata`, y con `?sha256=<hash>` quedaría `?sha256=<hash>.metadata`. Un archivo sin hash se reescribe a `/pypi/packages/<ruta>` y se reenvía sin verificar. Una URL que no apunte a ese host se deja intacta.
 
 **Fechas y mantenedores.** Para `UpstreamMetadata` (versiones, fechas y responsables) se consulta la JSON API `https://pypi.org/pypi/<nombre>/json`. La fecha de una versión es la primera subida entre sus archivos. PyPI no expone scripts de instalación, así que `scripts` queda vacío.
 
-**Verificación de integridad.** El helper de streaming de D1-1 se generaliza con un parámetro `algorithm` (`sha512` por defecto para npm, `sha256` para PyPI). Si el cliente pide un artefacto con `?sha256=`, el proxy calcula el SHA-256 mientras reenvía los bytes y corta la descarga si no coincide; sin hash, reenvía sin verificar y confía en la comprobación del cliente.
+**Verificación de integridad.** Se reutiliza `open_upstream_download` (D1-1) con `algorithm="sha256"`: valida status, codificación y tamaño antes de responder, de modo que un 404 o 503 del upstream llega al cliente como 502 y no como un 200 cortado. Si la ruta lleva hash, el proxy lo calcula mientras reenvía los bytes y aborta la respuesta si no coincide. Los archivos `.metadata` no se verifican con el hash del wheel (es otro contenido); el cliente los comprueba con el hash de `data-core-metadata`.
 
-**Rutas.** `/simple/<proyecto>/` sirve el índice (y `/simple/<proyecto>` redirige con 307), `/packages/<ruta>` reenvía el artefacto. El cliente HTTP se construye al crear la app y se cierra en el *lifespan*. Estas rutas todavía no exigen token ni aplican bloqueos: el enforcement y la autenticación son D1-3.
+**Rutas y autenticación.** Siguen el ADR [0013](0013-proxy-routes-with-per-ecosystem-prefix.md): `/pypi/simple/<proyecto>/` sirve el índice (y sin barra final redirige con 307) y `/pypi/packages/...` reenvía el artefacto. Todas exigen el token de proyecto (ADR [0006](0006-project-auth-tokens.md)). El cliente HTTP es el único de la app (ADR 0005). El bloqueo por política es D1-3.
 
 ## Alternativas consideradas
 
 - **Servir el HTML del upstream tal cual**: lo más simple, pero deja los `href` apuntando a `files.pythonhosted.org`, con lo que el cliente se saltaría el firewall.
 - **Construir el índice solo desde la JSON API `/pypi/<nombre>/json`**: da fechas y hashes en un mismo sitio, pero no publica la metadata PEP 658 ni la forma exacta del índice simple; el cliente perdería PEP 658 y habría que sintetizar el índice.
 - **Pasar el upstream en cada formato ya resuelto**: obligaría a dos peticiones (una por formato) y a confiar en que el upstream negocie igual que el cliente.
-- **Verificar con el hash en la ruta en lugar de la query**: más limpio, pero pip solo lee el fragmento `#sha256=`, y sin query el proxy no tendría el hash esperado para verificar.
+- **Hash en una query (`?sha256=`)**: rompe la metadata PEP 658, porque pip añade `.metadata` al final de la URL. Por eso el hash va en la ruta.
 - **Un cliente `httpx` propio en cada petición**: dispersa timeouts y allowlist; por eso se reutiliza el compartido (ADR 0005).
 
 ## Consecuencias
 
 - `pip` y `uv` funcionan contra el proxy sin modificar bytes ni hashes; el fragmento `#sha256=` que ve el cliente es el del upstream.
 - El proxy valida el host antes de abrir conexión y no sigue redirects, igual que el resto de la salida (ADR 0005).
-- Falta D1-3: las rutas no autentican ni eliminan versiones bloqueadas. Hasta entonces, el espejo sirve todo lo que el upstream permite.
+- Falta D1-3: las rutas no eliminan versiones bloqueadas. Hasta entonces, el espejo sirve todo lo que el upstream permite a quien tenga token.
 - Los archivos de `files.pythonhosted.org` con nombre de host distinto no se reescriben; si PyPI cambia de CDN, hay que actualizar `proxy/pypi/urls.py`.
-- El helper `stream_upstream` cambia de firma (parámetro `algorithm`, digest opcional); los llamadores posicionales existentes siguen funcionando.
+- `DigestAlgorithm` incluye `sha256` y `open_upstream_download` acepta un digest `None` para reenviar sin verificar.

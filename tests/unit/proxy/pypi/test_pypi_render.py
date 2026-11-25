@@ -32,7 +32,9 @@ def _project() -> SimpleProject:
 def test_render_html_rewrites_links_and_keeps_attributes() -> None:
     document = render_html(_project(), BASE)
     assert "Links for django" in document
-    assert "http://proxy.test/packages/ab/cd/Django-5.0-py3-none-any.whl" in document
+    assert (
+        "http://proxy.test/pypi/packages/sha256/aaa1/ab/cd/Django-5.0-py3-none-any.whl" in document
+    )
     assert "#sha256=aaa1" in document
     assert 'data-requires-python="&gt;=3.10"' in document
     assert 'data-core-metadata="sha256=ccc3"' in document
@@ -52,7 +54,7 @@ def test_render_json_uses_proxy_urls_and_pep691_shape() -> None:
     files = payload["files"]
     assert isinstance(files, list)
     wheel = files[0]
-    assert wheel["url"].startswith("http://proxy.test/packages/")
+    assert wheel["url"].startswith("http://proxy.test/pypi/packages/")
     assert wheel["url"].endswith("#sha256=aaa1")
     assert wheel["hashes"] == {"sha256": "aaa1"}
     assert wheel["requires-python"] == ">=3.10"

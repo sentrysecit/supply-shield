@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420" role="img" aria-labelledby="t d" font-family="system-ui, -apple-system, &quot;Segoe UI&quot;, sans-serif">
+<title id="t">PyPI: legítimos bloqueados según el umbral</title>
+<desc id="d">Tasa de falsos positivos del detector de typosquatting en PyPI para cada grupo de paquetes legítimos según el umbral de bloqueo. La lista popular no aparece porque nunca se marca. Los valores están en metricas.csv.</desc>
+<style>
+@media (prefers-color-scheme: dark) {
+  .surface { fill: #1a1a19; }
+  .ink { fill: #f0efec; }
+  .ink-2 { fill: #c3c2b7; }
+  .muted { fill: #898781; }
+  .grid { stroke: #2c2c2a; }
+  .axis { stroke: #383835; }
+  .marker { stroke: #898781; }
+  .ring { stroke: #1a1a19; }
+  .s0 { stroke: #3987e5; }
+  .d0 { fill: #3987e5; }
+  .s1 { stroke: #d95926; }
+  .d1 { fill: #d95926; }
+  .s2 { stroke: #199e70; }
+  .d2 { fill: #199e70; }
+}
+</style>
+<rect class="surface" width="720" height="420" fill="#fcfcfb"/>
+<text class="ink" x="64" y="28" font-size="16" font-weight="600" fill="#0b0b0b">PyPI: legítimos bloqueados según el umbral</text>
+<text class="ink-2" x="64" y="48" font-size="13" fill="#52514e">9 998 siguientes del ranking y 5 000 al azar del registro</text>
+<line class="axis" x1="64" x2="688" y1="360.0" y2="360.0" stroke="#c3c2b7" stroke-width="1"/>
+<text class="muted" x="56" y="364.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">0 %</text>
+<line class="grid" x1="64" x2="688" y1="296.0" y2="296.0" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="300.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">5 %</text>
+<line class="grid" x1="64" x2="688" y1="232.0" y2="232.0" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="236.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">10 %</text>
+<line class="grid" x1="64" x2="688" y1="168.0" y2="168.0" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="172.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">15 %</text>
+<line class="grid" x1="64" x2="688" y1="104.0" y2="104.0" stroke="#e1e0d9" stroke-width="1"/>
+<text class="muted" x="56" y="108.0" font-size="12" text-anchor="end" fill="#898781" style="font-variant-numeric: tabular-nums">20 %</text>
+<text class="muted" x="64.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,70</text>
+<text class="muted" x="168.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,75</text>
+<text class="muted" x="272.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,80</text>
+<text class="muted" x="376.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,85</text>
+<text class="muted" x="480.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,90</text>
+<text class="muted" x="584.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">0,95</text>
+<text class="muted" x="688.0" y="380" font-size="12" text-anchor="middle" fill="#898781" style="font-variant-numeric: tabular-nums">1,00</text>
+<text class="ink-2" x="376.0" y="406" font-size="12" text-anchor="middle" fill="#52514e">Umbral de bloqueo</text>
+<line class="marker" x1="376.0" x2="376.0" y1="98" y2="360" stroke="#898781" stroke-width="1"/>
+<text class="muted" x="382.0" y="96" font-size="12" fill="#898781">bloqueo actual: 0,85</text>
+<path class="s0" d="M64.0,147.6H84.8V153.8H105.6V153.8H126.4V153.8H147.2V186.4H168.0V239.7H188.8V284.8H209.6V305.1H230.4V310.7H251.2V311.4H272.0V311.4H292.8V323.8H313.6V327.4H334.4V330.6H355.2V331.3H376.0V331.5H396.8V332.6H417.6V332.6H438.4V332.6H459.2V332.6H480.0V332.6H500.8V340.3H521.6V340.3H542.4V340.3H563.2V340.3H584.0V340.3H604.8V358.8H625.6V358.8H646.4V358.8H667.2V358.8H688.0V358.8" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="d0 ring" cx="376.0" cy="331.5" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="64.0" cy="147.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,70: 17 %</title></circle>
+<circle cx="84.8" cy="153.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,71: 16 %</title></circle>
+<circle cx="105.6" cy="153.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,72: 16 %</title></circle>
+<circle cx="126.4" cy="153.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,73: 16 %</title></circle>
+<circle cx="147.2" cy="186.4" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,74: 14 %</title></circle>
+<circle cx="168.0" cy="239.7" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,75: 9,4 %</title></circle>
+<circle cx="188.8" cy="284.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,76: 5,9 %</title></circle>
+<circle cx="209.6" cy="305.1" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,77: 4,3 %</title></circle>
+<circle cx="230.4" cy="310.7" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,78: 3,9 %</title></circle>
+<circle cx="251.2" cy="311.4" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,79: 3,8 %</title></circle>
+<circle cx="272.0" cy="311.4" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,80: 3,8 %</title></circle>
+<circle cx="292.8" cy="323.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,81: 2,8 %</title></circle>
+<circle cx="313.6" cy="327.4" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,82: 2,6 %</title></circle>
+<circle cx="334.4" cy="330.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,83: 2,3 %</title></circle>
+<circle cx="355.2" cy="331.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,84: 2,2 %</title></circle>
+<circle cx="376.0" cy="331.5" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,85: 2,2 %</title></circle>
+<circle cx="396.8" cy="332.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,86: 2,1 %</title></circle>
+<circle cx="417.6" cy="332.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,87: 2,1 %</title></circle>
+<circle cx="438.4" cy="332.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,88: 2,1 %</title></circle>
+<circle cx="459.2" cy="332.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,89: 2,1 %</title></circle>
+<circle cx="480.0" cy="332.6" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,90: 2,1 %</title></circle>
+<circle cx="500.8" cy="340.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,91: 1,5 %</title></circle>
+<circle cx="521.6" cy="340.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,92: 1,5 %</title></circle>
+<circle cx="542.4" cy="340.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,93: 1,5 %</title></circle>
+<circle cx="563.2" cy="340.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,94: 1,5 %</title></circle>
+<circle cx="584.0" cy="340.3" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,95: 1,5 %</title></circle>
+<circle cx="604.8" cy="358.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,96: 0,1 %</title></circle>
+<circle cx="625.6" cy="358.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,97: 0,1 %</title></circle>
+<circle cx="646.4" cy="358.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,98: 0,1 %</title></circle>
+<circle cx="667.2" cy="358.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 0,99: 0,1 %</title></circle>
+<circle cx="688.0" cy="358.8" r="9" fill="transparent"><title>Siguientes del ranking · Umbral de bloqueo 1,00: 0,1 %</title></circle>
+<path class="s1" d="M64.0,295.5H84.8V295.7H105.6V295.7H126.4V295.7H147.2V309.1H168.0V323.4H188.8V336.7H209.6V340.5H230.4V341.6H251.2V341.6H272.0V341.6H292.8V346.4H313.6V347.7H334.4V347.7H355.2V348.2H376.0V348.2H396.8V348.2H417.6V348.2H438.4V348.2H459.2V348.2H480.0V348.2H500.8V351.8H521.6V351.8H542.4V351.8H563.2V351.8H584.0V351.8H604.8V359.7H625.6V359.7H646.4V359.7H667.2V359.7H688.0V359.7" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="d1 ring" cx="376.0" cy="348.2" r="4" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="64.0" cy="295.5" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,70: 5 %</title></circle>
+<circle cx="84.8" cy="295.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,71: 5 %</title></circle>
+<circle cx="105.6" cy="295.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,72: 5 %</title></circle>
+<circle cx="126.4" cy="295.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,73: 5 %</title></circle>
+<circle cx="147.2" cy="309.1" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,74: 4 %</title></circle>
+<circle cx="168.0" cy="323.4" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,75: 2,9 %</title></circle>
+<circle cx="188.8" cy="336.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,76: 1,8 %</title></circle>
+<circle cx="209.6" cy="340.5" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,77: 1,5 %</title></circle>
+<circle cx="230.4" cy="341.6" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,78: 1,4 %</title></circle>
+<circle cx="251.2" cy="341.6" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,79: 1,4 %</title></circle>
+<circle cx="272.0" cy="341.6" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,80: 1,4 %</title></circle>
+<circle cx="292.8" cy="346.4" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,81: 1,1 %</title></circle>
+<circle cx="313.6" cy="347.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,82: 1 %</title></circle>
+<circle cx="334.4" cy="347.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,83: 1 %</title></circle>
+<circle cx="355.2" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,84: 0,9 %</title></circle>
+<circle cx="376.0" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,85: 0,9 %</title></circle>
+<circle cx="396.8" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,86: 0,9 %</title></circle>
+<circle cx="417.6" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,87: 0,9 %</title></circle>
+<circle cx="438.4" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,88: 0,9 %</title></circle>
+<circle cx="459.2" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,89: 0,9 %</title></circle>
+<circle cx="480.0" cy="348.2" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,90: 0,9 %</title></circle>
+<circle cx="500.8" cy="351.8" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,91: 0,6 %</title></circle>
+<circle cx="521.6" cy="351.8" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,92: 0,6 %</title></circle>
+<circle cx="542.4" cy="351.8" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,93: 0,6 %</title></circle>
+<circle cx="563.2" cy="351.8" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,94: 0,6 %</title></circle>
+<circle cx="584.0" cy="351.8" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,95: 0,6 %</title></circle>
+<circle cx="604.8" cy="359.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,96: 0 %</title></circle>
+<circle cx="625.6" cy="359.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,97: 0 %</title></circle>
+<circle cx="646.4" cy="359.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,98: 0 %</title></circle>
+<circle cx="667.2" cy="359.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 0,99: 0 %</title></circle>
+<circle cx="688.0" cy="359.7" r="9" fill="transparent"><title>Muestra aleatoria · Umbral de bloqueo 1,00: 0 %</title></circle>
+<text class="ink-2" x="64.0" y="76" font-size="12" fill="#52514e">Con 0,85:</text>
+<line class="s0" x1="139.0" x2="155.0" y1="72" y2="72" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<text class="ink-2" x="161.0" y="76" font-size="12" fill="#52514e">Siguientes del ranking 2,2 %</text>
+<line class="s1" x1="377.0" x2="393.0" y1="72" y2="72" stroke="#eb6834" stroke-width="2" stroke-linecap="round"/>
+<text class="ink-2" x="399.0" y="76" font-size="12" fill="#52514e">Muestra aleatoria 0,9 %</text>
+</svg>

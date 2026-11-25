@@ -17,16 +17,23 @@ def _file(**overrides: object) -> DistributionFile:
 
 
 def test_rewrites_host_and_preserves_sha256() -> None:
-    url = proxy_file_url("http://proxy.test/", _file(sha256="abc123"))
-    assert (
-        url
-        == "http://proxy.test/packages/ab/cd/Django-5.0-py3-none-any.whl?sha256=abc123#sha256=abc123"
+    url = proxy_file_url("http://proxy.test", _file(sha256="abc123"))
+    assert url == (
+        "http://proxy.test/pypi/packages/sha256/abc123/ab/cd/Django-5.0-py3-none-any.whl"
+        "#sha256=abc123"
     )
+
+
+def test_hash_is_not_in_a_query_so_pip_can_append_metadata() -> None:
+    """pip pide ``<url sin fragmento>.metadata``: con una query quedaría ``?sha256=x.metadata``."""
+    url = proxy_file_url("http://proxy.test", _file(sha256="abc123")).split("#")[0]
+    assert "?" not in url
+    assert f"{url}.metadata".endswith("/Django-5.0-py3-none-any.whl.metadata")
 
 
 def test_rewrite_without_hash_keeps_plain_url() -> None:
     url = proxy_file_url("http://proxy.test/", _file())
-    assert url == "http://proxy.test/packages/ab/cd/Django-5.0-py3-none-any.whl"
+    assert url == "http://proxy.test/pypi/packages/ab/cd/Django-5.0-py3-none-any.whl"
 
 
 def test_non_proxyable_url_is_left_untouched() -> None:

@@ -1,18 +1,19 @@
 # Espejo de PyPI
 
-Supply-Shield actúa como *registry mirror* de PyPI ([ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)): el cliente apunta su `index-url` al proxy y obtiene de ahí el índice simple y los artefactos. El proxy los reenvía desde `pypi.org` y `files.pythonhosted.org` **sin modificar los bytes**, así que los hashes que ve el cliente son los del upstream. Las decisiones de diseño están en el [ADR 0011](adr/0011-pypi-simple-proxy.md).
+Supply-Shield actúa como *registry mirror* de PyPI ([ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)): el cliente apunta su `index-url` al proxy y obtiene de ahí el índice simple y los artefactos. El proxy los reenvía desde `pypi.org` y `files.pythonhosted.org` **sin modificar los bytes**, así que los hashes que ve el cliente son los del upstream. Las decisiones de diseño están en el [ADR 0015](adr/0015-pypi-simple-proxy.md).
 
 ## Rutas
 
 | Ruta | Qué hace |
 | --- | --- |
-| `GET /simple/<proyecto>/` | Índice simple del proyecto, en HTML (PEP 503) o JSON (PEP 691) según `Accept`. |
-| `GET /simple/<proyecto>` | Redirige (307) a la forma con barra final. |
-| `GET /packages/<ruta>?sha256=<hex>` | Reenvía el artefacto; si llega `sha256`, verifica el SHA-256 mientras streamea. |
+| `GET /pypi/simple/<proyecto>/` | Índice simple del proyecto, en HTML (PEP 503) o JSON (PEP 691) según `Accept`. |
+| `GET /pypi/simple/<proyecto>` | Redirige (307) a la forma con barra final. |
+| `GET /pypi/packages/sha256/<hex>/<ruta>` | Reenvía el artefacto verificando su SHA-256 mientras lo streamea. |
+| `GET /pypi/packages/<ruta>` | Reenvía el artefacto sin verificar (el índice no trajo hash). |
 
-El índice incluye la metadata PEP 658 (`data-core-metadata`), respeta las versiones *yanked* (`data-yanked`) y reescribe cada enlace hacia `/packages/…`, conservando el fragmento `#sha256=`. Las fechas de publicación y los mantenedores se toman de la JSON API de PyPI y se exponen como `UpstreamMetadata` al resto del sistema.
+El índice incluye la metadata PEP 658 (`data-core-metadata`), respeta las versiones *yanked* (`data-yanked`) y reescribe cada enlace a `/pypi/packages/sha256/<hex>/…`, conservando el fragmento `#sha256=`. El hash va en la ruta y no en una query porque pip y uv piden la metadata añadiendo `.metadata` a la URL; la metadata no se verifica con el hash del archivo, la comprueba el cliente con `data-core-metadata`. Las fechas de publicación y los mantenedores se toman de la JSON API de PyPI y se exponen como `UpstreamMetadata` al resto del sistema.
 
-Estas rutas **todavía no aplican bloqueos ni piden token**: eso es la tarea D1-3.
+Todas las rutas exigen el token de proyecto ([ADR 0006](adr/0006-project-auth-tokens.md)) y cuelgan del prefijo `/pypi` ([ADR 0013](adr/0013-proxy-routes-with-per-ecosystem-prefix.md)). Todavía **no aplican bloqueos**: eso es la tarea D1-3.
 
 ## Configurar un cliente
 
@@ -21,20 +22,20 @@ Estas rutas **todavía no aplican bloqueos ni piden token**: eso es la tarea D1-
 ```ini
 # pip.conf
 [global]
-index-url = https://<proyecto>:<token>@proxy.example/simple
+index-url = https://<proyecto>:<token>@proxy.example/pypi/simple
 ```
 
 Con `uv`, la misma idea:
 
 ```bash
-UV_INDEX_URL=https://<proyecto>:<token>@proxy.example/simple uv pip install requests
+UV_INDEX_URL=https://<proyecto>:<token>@proxy.example/pypi/simple uv pip install requests
 ```
 
 Para verificar integridad, `pip install --require-hashes` usa el fragmento `#sha256=` que el índice ya trae del upstream; no hay que tocar el `requirements.txt`.
 
 ## Normalización de nombres
 
-Los nombres se normalizan según la PEP 503 (`Django` = `django`, `my_pkg` = `my-pkg`) con `supply_shield.core.naming`. La ruta `/simple/django/` sirve también a un cliente que pida `/simple/Django/`.
+Los nombres se normalizan según la PEP 503 (`Django` = `django`, `my_pkg` = `my-pkg`) con `supply_shield.core.naming`. La ruta `/pypi/simple/django/` sirve también a un cliente que pida `/pypi/simple/Django/`.
 
 ## Uso desde el código
 
@@ -53,5 +54,4 @@ El parseo, el render y la reescritura de URLs son funciones puras (`parse_simple
 ## Pendiente
 
 - D1-3: pedir una decisión al motor de evaluación, quitar del índice las versiones bloqueadas y responder 403 si se pide un archivo bloqueado.
-- D1-3/D2-1: exigir el token de proyecto en las rutas del proxy.
 - D5-7: servir los artefactos desde la caché de disco en lugar de ir siempre al upstream.
