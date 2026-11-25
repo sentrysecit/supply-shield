@@ -59,12 +59,14 @@ class Settings(BaseSettings):
     upstream_backoff_factor: float = Field(default=0.5, gt=0)
     upstream_max_connections: int = Field(default=100, ge=1)
 
-    # Fuente de vulnerabilidades OSV.dev (D3-3). Una consulta fallida sale como
-    # OsvError, nunca como una lista vacía de hallazgos.
+    # Fuente de vulnerabilidades OSV.dev (D3-3). Una consulta que no se puede
+    # completar sale como OsvError o como análisis incompleto, nunca como una
+    # lista vacía de hallazgos.
     osv_base_url: str = "https://api.osv.dev"
     osv_timeout_seconds: float = Field(default=10.0, gt=0)
     osv_max_retries: int = Field(default=2, ge=0)
     osv_backoff_factor: float = Field(default=0.5, gt=0)
+    osv_max_concurrency: int = Field(default=8, ge=1)
 
     # Heuristic risk rules. Thresholds live here so they can be changed without
     # touching the rule implementations.

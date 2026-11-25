@@ -1,7 +1,8 @@
 """Cliente HTTP de la base de vulnerabilidades OSV.dev.
 
-La consulta por lotes devuelve ids de avisos. Cada id se pide completo, porque
-el lote no trae el vector CVSS ni las versiones corregidas.
+La consulta por lotes devuelve ids de avisos y, si hace falta, más páginas. Cada
+id se pide completo, porque el lote no trae el vector CVSS ni las versiones
+corregidas.
 """
 
 import asyncio
@@ -30,6 +31,8 @@ _RETRYABLE_CLIENT_STATUS = 429
 _SERVER_ERROR = 500
 _HTTP_PORT = 80
 _HTTPS_PORT = 443
+_MAX_PAGES = 20
+_PACKAGE_RANGES = frozenset({"SEMVER", "ECOSYSTEM"})
 
 
 class OsvError(Exception):
@@ -55,6 +58,18 @@ class OsvAdvisory:
     ecosystem_severity: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class OsvLookup:
+    """Avisos confirmados y si la consulta a OSV terminó entera.
+
+    ``complete`` es falso cuando algún detalle no se pudo descargar. Los avisos
+    que sí llegaron siguen en ``advisories`` para que la política los evalúe.
+    """
+
+    advisories: tuple[OsvAdvisory, ...]
+    complete: bool
+
+
 class OsvClient:
     """Consulta en OSV los avisos que afectan a una versión de un paquete."""
 
@@ -63,55 +78,68 @@ class OsvClient:
         self._settings = settings
         self._origin = _origin(settings.osv_base_url)
 
-    async def advisories_for(self, package: PackageRef) -> list[OsvAdvisory]:
+    async def advisories_for(self, package: PackageRef) -> OsvLookup:
         """Avisos que OSV reporta para esta versión, en el orden en que los devolvió.
 
+        Recorre ``next_page_token`` hasta la última página y descarga los
+        detalles con concurrencia acotada. Un fallo de paginación aborta la
+        consulta: una página no es la lista completa.
+
         Raises:
-            OsvError: OSV agotó el tiempo, devolvió un error o envió un documento ilegible.
+            OsvError: OSV agotó el tiempo, devolvió un error, paginó de más o
+                envió un documento ilegible en la consulta por lotes.
         """
         if package.version is None:
-            return []
+            return OsvLookup((), True)
         identifiers = await self._query_ids(package)
-        advisories: list[OsvAdvisory] = []
-        for advisory_id in identifiers:
-            document = await self._get_json(f"/v1/vulns/{quote(advisory_id, safe='')}")
-            advisories.append(_advisory_from_document(document, package, expected_id=advisory_id))
-        return advisories
+        return await self._fetch_advisories(package, identifiers)
 
     async def _query_ids(self, package: PackageRef) -> list[str]:
-        payload = await self._post_json(
-            "/v1/querybatch",
-            {
-                "queries": [
-                    {
-                        "version": package.version,
-                        "package": {
-                            "name": package.name,
-                            "ecosystem": _OSV_ECOSYSTEM[package.ecosystem],
-                        },
-                    }
-                ]
-            },
-        )
-        results = payload.get("results")
-        if not isinstance(results, list) or not results:
-            raise OsvError("OSV querybatch response has no results")
-        first = _as_dict(results[0])
-        if first is None:
-            raise OsvError("OSV querybatch result is not an object")
-        vulns = first.get("vulns")
-        if vulns is None:
-            return []
-        if not isinstance(vulns, list):
-            raise OsvError("OSV querybatch vulns field is not a list")
+        token: str | None = None
+        seen: set[str] = set()
         identifiers: list[str] = []
-        for item in vulns:
-            entry = _as_dict(item)
-            advisory_id = entry.get("id") if entry is not None else None
-            if not isinstance(advisory_id, str) or _ADVISORY_ID.fullmatch(advisory_id) is None:
-                raise OsvError("OSV querybatch listed an advisory id that cannot be fetched")
-            identifiers.append(advisory_id)
-        return identifiers
+        for _ in range(_MAX_PAGES):
+            payload = await self._post_json("/v1/querybatch", _query_body(package, token))
+            page = _first_page(payload)
+            identifiers.extend(_page_ids(page))
+            token = _next_page_token(page)
+            if token is None:
+                return list(dict.fromkeys(identifiers))
+            if token in seen:
+                raise OsvError("OSV querybatch repeated a page token")
+            seen.add(token)
+        raise OsvError("OSV querybatch pagination did not finish")
+
+    async def _fetch_advisories(
+        self,
+        package: PackageRef,
+        identifiers: list[str],
+    ) -> OsvLookup:
+        if not identifiers:
+            return OsvLookup((), True)
+        ordered: list[OsvAdvisory | None] = [None] * len(identifiers)
+        failed = False
+        semaphore = asyncio.Semaphore(self._settings.osv_max_concurrency)
+
+        async def fetch(index: int, advisory_id: str) -> None:
+            nonlocal failed
+            async with semaphore:
+                try:
+                    document = await self._get_json(f"/v1/vulns/{quote(advisory_id, safe='')}")
+                    ordered[index] = _advisory_from_document(
+                        document,
+                        package,
+                        expected_id=advisory_id,
+                    )
+                except OsvError:
+                    failed = True
+                    logger.warning("osv_advisory_fetch_failed", advisory_id=advisory_id)
+
+        async with asyncio.TaskGroup() as group:
+            for index, advisory_id in enumerate(identifiers):
+                group.create_task(fetch(index, advisory_id))
+        advisories = tuple(item for item in ordered if item is not None)
+        return OsvLookup(advisories, not failed)
 
     async def _post_json(self, path: str, body: dict[str, object]) -> dict[str, object]:
         return await self._request("POST", path, json_body=body)
@@ -138,7 +166,9 @@ class OsvClient:
                     timeout=self._settings.osv_timeout_seconds,
                     follow_redirects=False,
                 )
-            except (httpx.TimeoutException, httpx.ConnectError) as error:
+            except httpx.InvalidURL as error:
+                raise OsvError(f"OSV {method} {path} failed") from error
+            except httpx.TransportError as error:
                 if attempt >= max_retries:
                     raise OsvError(f"OSV {method} {path} failed") from error
                 await self._retry(path, attempt, type(error).__name__)
@@ -168,15 +198,64 @@ class OsvClient:
 
 def _origin(base_url: str) -> str:
     parsed = httpx.URL(base_url)
-    if parsed.scheme not in {"http", "https"} or parsed.userinfo or not parsed.host:
+    host = parsed.host
+    if parsed.scheme not in {"http", "https"} or parsed.userinfo or not host:
         raise OsvError(f"OSV base URL {base_url!r} is not an HTTP(S) origin")
+    if ":" in host:
+        host = f"[{host}]"
     port = ""
     if parsed.port is not None and not (
         (parsed.scheme == "https" and parsed.port == _HTTPS_PORT)
         or (parsed.scheme == "http" and parsed.port == _HTTP_PORT)
     ):
         port = f":{parsed.port}"
-    return f"{parsed.scheme}://{parsed.host}{port}"
+    return f"{parsed.scheme}://{host}{port}"
+
+
+def _query_body(package: PackageRef, page_token: str | None) -> dict[str, object]:
+    query: dict[str, object] = {
+        "version": package.version,
+        "package": {
+            "name": package.registry_name,
+            "ecosystem": _OSV_ECOSYSTEM[package.ecosystem],
+        },
+    }
+    if page_token is not None:
+        query["page_token"] = page_token
+    return {"queries": [query]}
+
+
+def _first_page(payload: dict[str, object]) -> dict[str, object]:
+    results = payload.get("results")
+    if not isinstance(results, list) or not results:
+        raise OsvError("OSV querybatch response has no results")
+    first = _as_dict(results[0])
+    if first is None:
+        raise OsvError("OSV querybatch result is not an object")
+    return first
+
+
+def _page_ids(page: dict[str, object]) -> list[str]:
+    vulns = page.get("vulns")
+    if vulns is None:
+        return []
+    if not isinstance(vulns, list):
+        raise OsvError("OSV querybatch vulns field is not a list")
+    identifiers: list[str] = []
+    for item in vulns:
+        entry = _as_dict(item)
+        advisory_id = entry.get("id") if entry is not None else None
+        if not isinstance(advisory_id, str) or _ADVISORY_ID.fullmatch(advisory_id) is None:
+            raise OsvError("OSV querybatch listed an advisory id that cannot be fetched")
+        identifiers.append(advisory_id)
+    return identifiers
+
+
+def _next_page_token(page: dict[str, object]) -> str | None:
+    token = page.get("next_page_token")
+    if not isinstance(token, str) or not token.strip():
+        return None
+    return token.strip()
 
 
 def _json_object(response: httpx.Response, method: str, path: str) -> dict[str, object]:
@@ -294,7 +373,9 @@ def _fixed_versions(affected: object, package: PackageRef) -> tuple[str, ...]:
             continue
         for span in ranges:
             events = _as_dict(span)
-            raw_events = events.get("events") if events is not None else None
+            if events is None or events.get("type") not in _PACKAGE_RANGES:
+                continue
+            raw_events = events.get("events")
             if not isinstance(raw_events, list):
                 continue
             for event in raw_events:
