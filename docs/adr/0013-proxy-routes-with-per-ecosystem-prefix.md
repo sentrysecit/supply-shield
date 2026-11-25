@@ -1,4 +1,4 @@
-# 0006. Rutas del proxy con prefijo por ecosistema
+# 0013. Rutas del proxy con prefijo por ecosistema
 
 - **Estado**: Aceptado
 - **Fecha**: 2026-10-31
@@ -34,5 +34,6 @@ Las rutas de cada adaptador se montan con un router FastAPI con `prefix="/npm"` 
 
 - Añadir un ecosistema nuevo es montar un router con su prefijo, sin tocar los demás.
 - Los clientes deben incluir el prefijo en la URL del registro (`registry=http://proxy:8000/npm/`); se documenta una sola vez en la guía de clientes (D2-5).
-- `SUPPLY_SHIELD_PROXY_BASE_URL` no lleva prefijo, así que un solo setting sirve para npm y PyPI; cambiarlo reescribe todas las URLs de descarga a la vez.
+- `SUPPLY_SHIELD_PROXY_BASE_URL` no lleva prefijo, así que un solo setting sirve para npm y PyPI; cambiarlo reescribe todas las URLs de descarga a la vez. `Settings` rechaza un valor que no sea una URL http(s) absoluta y le quita la barra final, para que las URLs reescritas no queden con `//npm/`.
+- Las rutas de cada prefijo exigen el token de proyecto del ADR [0006](0006-project-auth-tokens.md). Como npm solo envía el token a las URLs que cuelgan del registro configurado, `SUPPLY_SHIELD_PROXY_BASE_URL` debe ser la misma dirección que usan los clientes: `.npmrc` lleva `registry=http://proxy:8000/npm/` y `//proxy:8000/npm/:_authToken=<token>`.
 - El slash final de la URL del registro es responsabilidad del cliente (npm lo exige); el proxy no lo añade.

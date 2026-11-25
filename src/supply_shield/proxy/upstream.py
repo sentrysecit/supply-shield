@@ -21,6 +21,12 @@ _REDIRECT_STATUS_LOWER = 300
 _REDIRECT_STATUS_UPPER = 400
 _SERVER_ERROR_STATUS_LOWER = 500
 
+# Cabeceras que describen el cuerpo tal como viajó por la red. ``upstream_get``
+# devuelve el cuerpo ya decodificado, así que no deben acompañarlo.
+_TRANSFER_HEADERS: frozenset[str] = frozenset(
+    {"content-encoding", "content-length", "transfer-encoding"},
+)
+
 
 class UpstreamHostError(ValueError):
     """Una URL apunta a un host, esquema o forma que la allowlist upstream rechaza."""
@@ -30,6 +36,10 @@ class UpstreamRequestError(httpx.HTTPError):
     """Fallos transitorios del upstream agotaron los reintentos configurados."""
 
 
+class UpstreamTooLargeError(httpx.HTTPError):
+    """La respuesta upstream superó el tamaño máximo configurado."""
+
+
 def validate_upstream_url(url: str | httpx.URL, allowed_hosts: tuple[str, ...]) -> httpx.URL:
     """Parsea ``url`` y la valida contra la allowlist upstream.
 
@@ -37,7 +47,10 @@ def validate_upstream_url(url: str | httpx.URL, allowed_hosts: tuple[str, ...]) 
     ``allowed_hosts``. Cualquier otro caso lanza :class:`UpstreamHostError` para
     que el llamador nunca abra una conexión a un destino no previsto.
     """
-    parsed = httpx.URL(url)
+    try:
+        parsed = httpx.URL(url)
+    except httpx.InvalidURL as error:
+        raise UpstreamHostError(f"invalid upstream URL: {error}") from error
     if parsed.scheme not in _ALLOWED_SCHEMES:
         raise UpstreamHostError(f"scheme {parsed.scheme!r} is not allowed")
     if parsed.userinfo:
@@ -52,7 +65,8 @@ def build_upstream_client(settings: Settings) -> httpx.AsyncClient:
     """Construye el :class:`httpx.AsyncClient` upstream compartido desde ``settings``.
 
     Se habilitan HTTP/2 y un pool de conexiones; los redirects se desactivan para
-    que la allowlist no se pueda bypassar vía una cabecera ``Location``.
+    que la allowlist no se pueda bypassar vía una cabecera ``Location``. La app crea
+    una sola instancia al arrancar (ver ``supply_shield.main``) y la cierra al apagarse.
     """
     return httpx.AsyncClient(
         http2=True,
@@ -77,20 +91,26 @@ async def upstream_get(
     settings: Settings,
     headers: Mapping[str, str] | None = None,
 ) -> httpx.Response:
-    """GET a un recurso upstream, aplicando la allowlist y los reintentos.
+    """GET a un recurso upstream, aplicando la allowlist, el límite de tamaño y los reintentos.
 
-    Los fallos transitorios (timeouts, errores de conexión, 5xx) se reintentan con
-    backoff exponencial hasta ``settings.upstream_max_retries`` veces. Una respuesta
-    3xx se rechaza: el proxy nunca sigue redirects. Los ``headers`` opcionales se
-    reenvían al upstream (p. ej. ``Accept`` para el formato abreviado de npm).
+    Los fallos transitorios (cualquier error de transporte, como timeouts, conexiones
+    rechazadas o cortadas, y los 5xx) se reintentan con backoff exponencial hasta
+    ``settings.upstream_max_retries`` veces. Una respuesta 3xx se rechaza: el proxy
+    nunca sigue redirects. El cuerpo se lee en streaming y se corta con
+    :class:`UpstreamTooLargeError` si pasa de ``settings.upstream_max_response_bytes``
+    ya decodificado, así que una respuesta comprimida tampoco agota la memoria.
+    Los ``headers`` opcionales se reenvían al upstream (p. ej. ``Accept`` para el
+    formato abreviado de npm).
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
     max_retries = settings.upstream_max_retries
     attempt = 0
     while True:
         try:
-            response = await client.get(parsed, headers=headers)
-        except (httpx.TimeoutException, httpx.ConnectError) as error:
+            response = await _get_bounded(
+                client, parsed, settings.upstream_max_response_bytes, headers
+            )
+        except httpx.TransportError as error:
             if attempt >= max_retries:
                 raise UpstreamRequestError(f"upstream GET {parsed} failed") from error
             await _sleep_and_log(parsed, attempt, settings, reason=type(error).__name__)
@@ -108,6 +128,43 @@ async def upstream_get(
             continue
 
         return response
+
+
+async def _get_bounded(
+    client: httpx.AsyncClient,
+    url: httpx.URL,
+    max_bytes: int,
+    headers: Mapping[str, str] | None,
+) -> httpx.Response:
+    """Hace el GET leyendo el cuerpo en streaming y lo corta al pasar ``max_bytes``.
+
+    Devuelve una respuesta nueva con el cuerpo ya decodificado y sin las cabeceras
+    de transferencia, para que ``.content`` y ``.json()`` funcionen sobre ella.
+    """
+    request = client.build_request("GET", url, headers=headers)
+    response = await client.send(request, stream=True)
+    try:
+        declared = response.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+            raise UpstreamTooLargeError(f"upstream {url} exceeded the {max_bytes}-byte limit")
+        body = bytearray()
+        async for chunk in response.aiter_bytes():
+            body.extend(chunk)
+            if len(body) > max_bytes:
+                raise UpstreamTooLargeError(f"upstream {url} exceeded the {max_bytes}-byte limit")
+    finally:
+        await response.aclose()
+    headers_out = [
+        (name, value)
+        for name, value in response.headers.multi_items()
+        if name.lower() not in _TRANSFER_HEADERS
+    ]
+    return httpx.Response(
+        response.status_code,
+        headers=headers_out,
+        content=bytes(body),
+        request=request,
+    )
 
 
 async def _sleep_and_log(
