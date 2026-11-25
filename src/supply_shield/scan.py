@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from supply_shield.core import (
     Analyzer,
     Finding,
+    IncompleteAnalysisError,
     PackageRef,
     PolicyDecision,
     RequestContext,
@@ -61,6 +62,16 @@ async def _analyze_package(
     for analyzer in analyzers:
         try:
             findings.extend(await analyzer.analyze(package, context))
+        except IncompleteAnalysisError as error:
+            findings.extend(error.findings)
+            degraded = True
+            _logger.warning(
+                "scan.analyzer_incomplete",
+                analyzer=type(analyzer).__name__,
+                package=package.purl,
+                findings=len(error.findings),
+                reason=str(error),
+            )
         except Exception:
             degraded = True
             _logger.warning(

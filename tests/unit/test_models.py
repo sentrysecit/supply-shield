@@ -44,6 +44,16 @@ def test_npm_keeps_underscores_and_encodes_the_scope_in_the_purl() -> None:
     assert scoped.name == "@types/node"
     assert scoped.purl == "pkg:npm/%40types/node@18.0.1"
     assert plain.identity == PackageRef.of(Ecosystem.NPM, "my_pkg", "9.9.9").identity
+    assert plain.registry_name == "My_Pkg"
+
+
+def test_npm_registry_name_keeps_the_published_case() -> None:
+    package = PackageRef.of(Ecosystem.NPM, "Haraka", "1.0.0")
+
+    assert package.name == "haraka"
+    assert package.registry_name == "Haraka"
+    assert package.purl == "pkg:npm/haraka@1.0.0"
+    assert PackageRef.model_validate(package.model_dump()) == package
 
 
 def test_purl_encodes_the_plus_in_a_local_version() -> None:

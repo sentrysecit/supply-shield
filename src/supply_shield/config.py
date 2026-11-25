@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     # ecosistema; cada adaptador le añade su propio prefijo (p. ej. "/npm/") al
     # reescribir las URLs de descarga. La barra final se quita. Ver ADR 0013.
     proxy_base_url: str = "http://localhost:8000"
+    osv_base_url: str = "https://api.osv.dev"
+    osv_timeout_seconds: float = Field(default=10.0, gt=0)
+    osv_max_retries: int = Field(default=2, ge=0)
+    osv_backoff_factor: float = Field(default=0.5, gt=0)
+    osv_max_concurrency: int = Field(default=8, ge=1)
 
     # Heuristic risk rules. Thresholds live here so they can be changed without
     # touching the rule implementations.

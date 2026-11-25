@@ -1,6 +1,6 @@
 """Contratos compartidos por el proxy, los detectores y el motor de política."""
 
-from supply_shield.core.analyzer import Analyzer
+from supply_shield.core.analyzer import Analyzer, IncompleteAnalysisError
 from supply_shield.core.enums import DecisionAction, Ecosystem, Severity
 from supply_shield.core.finding import Finding
 from supply_shield.core.maintainer import Maintainer
@@ -16,6 +16,7 @@ __all__ = [
     "DecisionAction",
     "Ecosystem",
     "Finding",
+    "IncompleteAnalysisError",
     "Maintainer",
     "PackageRef",
     "PackageRelease",
