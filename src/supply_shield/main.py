@@ -21,6 +21,8 @@ from supply_shield.logging import configure_logging
 from supply_shield.policy import PolicyHolder, default_source, read_policy_file
 from supply_shield.policy.models import Policy
 from supply_shield.proxy.npm import routes as npm_routes
+from supply_shield.proxy.pypi import PyPIRegistry
+from supply_shield.proxy.pypi import router as pypi_router
 from supply_shield.proxy.upstream import build_upstream_client
 
 _logger = structlog.get_logger(__name__)
@@ -35,12 +37,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(npm_routes.router)
     app.include_router(admin.router)
+    app.include_router(pypi_router)
     app.include_router(scan.router)
     _init_token_store(app, settings)
     _init_upstream_client(app, settings)
     _init_policy(app, settings)
     _init_admin(app, settings)
     _init_typosquatting(app, settings)
+    _init_pypi(app, settings)
     _init_analyzers(app, settings)
     return app
 
@@ -83,6 +87,11 @@ def _init_analyzers(app: FastAPI, settings: Settings) -> None:
     y marcar nombres internos ahí sería falso positivo (ADR 0011).
     """
     app.state.analyzers = (app.state.typosquatting_analyzer,)
+
+
+def _init_pypi(app: FastAPI, settings: Settings) -> None:
+    """Construye el espejo de PyPI sobre el cliente upstream compartido (ADR 0005)."""
+    app.state.pypi_registry = PyPIRegistry(app.state.upstream_client, settings)
 
 
 def _init_typosquatting(app: FastAPI, settings: Settings) -> None:
