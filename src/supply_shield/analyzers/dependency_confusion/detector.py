@@ -10,6 +10,7 @@ from supply_shield.core.enums import Severity
 from supply_shield.core.finding import Finding
 from supply_shield.core.package_ref import PackageRef
 from supply_shield.core.request_context import RequestContext
+from supply_shield.policy.rules import Rule
 
 
 class DependencyConfusionAnalyzer:
@@ -18,6 +19,8 @@ class DependencyConfusionAnalyzer:
     Un proyecto declara scopes y nombres internos; si se pide uno de esos nombres
     al registro público, se genera un hallazgo crítico.
     """
+
+    rule = Rule.DEPENDENCY_CONFUSION.value
 
     def __init__(self, projects_file: Path | None = None) -> None:
         self._projects_file = projects_file or get_settings().projects_file

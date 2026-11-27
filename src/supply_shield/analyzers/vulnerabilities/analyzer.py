@@ -39,6 +39,8 @@ class VulnerabilityAnalyzer:
     de ese nombre.
     """
 
+    rule = Rule.VULNERABILITY.value
+
     def __init__(self, client: OsvClient) -> None:
         self._client = client
 

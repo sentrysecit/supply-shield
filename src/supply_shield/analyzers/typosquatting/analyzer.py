@@ -70,6 +70,8 @@ class TyposquattingAnalyzer:
     nombre: todas las versiones de un paquete reciben el mismo resultado.
     """
 
+    rule = Rule.TYPOSQUATTING.value
+
     def __init__(
         self,
         indexes: Mapping[Ecosystem, PopularIndex],

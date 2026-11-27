@@ -11,9 +11,9 @@ from supply_shield.core.request_context import RequestContext
 class IncompleteAnalysisError(Exception):
     """El detector produjo hallazgos, pero no pudo terminar la consulta.
 
-    Quien llama conserva ``findings`` y marca la decisión como degradada. Una
-    lista vacía aquí no significa que el paquete esté limpio: significa que la
-    fuente falló antes de confirmar un aviso.
+    Quien llama conserva ``findings``, marca la decisión como degradada y aplica
+    el modo de falla de la regla. Una lista vacía aquí no significa que el
+    paquete esté limpio: significa que la fuente falló antes de confirmar un aviso.
     """
 
     def __init__(self, findings: Sequence[Finding], message: str) -> None:
@@ -24,12 +24,15 @@ class IncompleteAnalysisError(Exception):
 class Analyzer(Protocol):
     """Detector que revisa un paquete y devuelve hallazgos.
 
-    Un paquete limpio es una lista vacía, no una excepción. Si el detector no
-    puede alcanzar su fuente, lanza un error controlado para que el evaluador
-    aplique el modo de fallo de esa regla, en lugar de tratar el silencio como
+    ``rule`` es el id de ``supply_shield.policy.Rule`` que cubre. Si el detector
+    no puede alcanzar su fuente, lanza un error controlado para que quien llama
+    aplique ``on_failure`` de esa regla, en lugar de tratar el silencio como
     ausencia de problemas. Si alcanzó una parte y el resto falló, lanza
-    :class:`IncompleteAnalysisError` con los hallazgos que sí confirmó.
+    :class:`IncompleteAnalysisError` con los hallazgos que sí confirmó. Un
+    paquete limpio es una lista vacía, no una excepción.
     """
+
+    rule: str
 
     async def analyze(self, package: PackageRef, context: RequestContext) -> list[Finding]:
         """Devuelve los hallazgos de ``package``. Una lista vacía no reporta nada."""

@@ -24,7 +24,7 @@ from supply_shield.core import (
 )
 from supply_shield.core.enums import DecisionAction
 from supply_shield.core.model_config import FROZEN
-from supply_shield.policy import Policy, evaluate
+from supply_shield.policy import Policy, apply_failures, evaluate
 from supply_shield.sbom.cyclonedx import generate_sbom
 from supply_shield.sbom.lockfiles.base import LockfileEntry
 
@@ -55,32 +55,35 @@ async def _analyze_package(
     package: PackageRef,
     context: RequestContext,
     analyzers: Sequence[Analyzer],
-) -> tuple[list[Finding], bool]:
-    """Corre todos los analizadores sobre un paquete; un fallo marca degradado."""
+) -> tuple[list[Finding], tuple[str, ...]]:
+    """Corre todos los analizadores; devuelve hallazgos y las reglas que fallaron."""
     findings: list[Finding] = []
-    degraded = False
+    failed: list[str] = []
     for analyzer in analyzers:
+        rule = analyzer.rule
         try:
             findings.extend(await analyzer.analyze(package, context))
         except IncompleteAnalysisError as error:
             findings.extend(error.findings)
-            degraded = True
+            failed.append(rule)
             _logger.warning(
                 "scan.analyzer_incomplete",
                 analyzer=type(analyzer).__name__,
+                rule=rule,
                 package=package.purl,
                 findings=len(error.findings),
                 reason=str(error),
             )
         except Exception:
-            degraded = True
+            failed.append(rule)
             _logger.warning(
                 "scan.analyzer_failed",
                 analyzer=type(analyzer).__name__,
+                rule=rule,
                 package=package.purl,
                 exc_info=True,
             )
-    return findings, degraded
+    return findings, tuple(dict.fromkeys(failed))
 
 
 async def scan_lockfile_entries(
@@ -99,10 +102,10 @@ async def scan_lockfile_entries(
 
     async def scan_one(entry: LockfileEntry) -> PackageScanResult:
         package = entry.package
-        findings, degraded = await _analyze_package(package, context, analyzers)
+        findings, failed_rules = await _analyze_package(package, context, analyzers)
         decision = evaluate(findings, context, policy)
-        if degraded:
-            decision = decision.model_copy(update={"degraded": True})
+        if failed_rules:
+            decision = apply_failures(decision, failed_rules, context, policy)
         return PackageScanResult(package=package, decision=decision)
 
     results = await asyncio.gather(*(scan_one(entry) for entry in entry_list))

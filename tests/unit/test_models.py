@@ -177,6 +177,8 @@ def test_finding_keeps_advisory_ids_and_the_fixed_version() -> None:
 
 def test_analyzer_protocol_accepts_a_detector_that_returns_findings() -> None:
     class _NoIssues:
+        rule = "vulnerability"
+
         async def analyze(self, package: PackageRef, context: RequestContext) -> list[Finding]:
             assert package.name
             assert context.project
