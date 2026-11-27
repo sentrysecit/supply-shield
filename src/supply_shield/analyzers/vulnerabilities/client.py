@@ -9,6 +9,7 @@ import asyncio
 import re
 from dataclasses import dataclass
 from urllib.parse import quote
+from weakref import WeakKeyDictionary
 
 import httpx
 import structlog
@@ -16,6 +17,7 @@ import structlog
 from supply_shield.config import Settings
 from supply_shield.core.enums import Ecosystem
 from supply_shield.core.package_ref import PackageRef
+from supply_shield.core.request_context import RequestContext
 
 logger = structlog.get_logger(__name__)
 
@@ -56,18 +58,25 @@ class OsvAdvisory:
     fixed_in: tuple[str, ...]
     vectors: tuple[tuple[str, str], ...]
     ecosystem_severity: str | None
+    withdrawn: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class OsvLookup:
-    """Avisos confirmados y si la consulta a OSV terminó entera.
+    """Avisos confirmados y los ids cuyo detalle no se pudo descargar.
 
-    ``complete`` es falso cuando algún detalle no se pudo descargar. Los avisos
-    que sí llegaron siguen en ``advisories`` para que la política los evalúe.
+    ``failed_ids`` son ids que el lote ya había listado. Cada detector decide
+    si ese fallo le importa: un GHSA que no descarga no deja incompleto al
+    detector de malware, y al revés. ``complete`` es falso cuando falló alguno.
     """
 
     advisories: tuple[OsvAdvisory, ...]
-    complete: bool
+    failed_ids: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        """True cuando todos los detalles del lote se descargaron."""
+        return not self.failed_ids
 
 
 class OsvClient:
@@ -77,29 +86,76 @@ class OsvClient:
         self._http = http
         self._settings = settings
         self._origin = _origin(settings.osv_base_url)
+        self._lock = asyncio.Lock()
+        self._lookups: WeakKeyDictionary[
+            RequestContext,
+            dict[tuple[str, str, str | None], asyncio.Task[OsvLookup]],
+        ] = WeakKeyDictionary()
 
-    async def advisories_for(self, package: PackageRef) -> OsvLookup:
-        """Avisos que OSV reporta para esta versión, en el orden en que los devolvió.
+    async def advisories_for(
+        self,
+        package: PackageRef,
+        *,
+        context: RequestContext | None = None,
+        omit_version: bool = False,
+    ) -> OsvLookup:
+        """Avisos que OSV reporta para este paquete, en el orden en que los devolvió.
 
-        Recorre ``next_page_token`` hasta la última página y descarga los
-        detalles con concurrencia acotada. Un fallo de paginación aborta la
-        consulta: una página no es la lista completa.
+        Sin versión y con ``omit_version`` en falso no consulta: el detector de
+        vulnerabilidades no puede calificar "todas las versiones". Con
+        ``omit_version`` la consulta va solo por nombre, que es lo que necesita
+        el malware (un ``MAL-`` con ``introduced: 0`` afecta a cualquier versión).
+
+        Si ``context`` viene, la misma petición reutiliza el resultado. Los dos
+        detectores comparten así una sola ida a OSV por paquete.
 
         Raises:
             OsvError: OSV agotó el tiempo, devolvió un error, paginó de más o
                 envió un documento ilegible en la consulta por lotes.
         """
-        if package.version is None:
-            return OsvLookup((), True)
-        identifiers = await self._query_ids(package)
+        if package.version is None and not omit_version:
+            return OsvLookup(())
+        if context is None:
+            return await self._load(package, omit_version=omit_version)
+        return await self._memoized(package, context, omit_version=omit_version)
+
+    async def _memoized(
+        self,
+        package: PackageRef,
+        context: RequestContext,
+        *,
+        omit_version: bool,
+    ) -> OsvLookup:
+        key = (
+            package.ecosystem.value,
+            package.registry_name,
+            None if omit_version else package.version,
+        )
+        async with self._lock:
+            bucket = self._lookups.get(context)
+            if bucket is None:
+                bucket = {}
+                self._lookups[context] = bucket
+            task = bucket.get(key)
+            if task is None:
+                task = asyncio.create_task(self._load(package, omit_version=omit_version))
+                bucket[key] = task
+        # Cancelar un detector no debe cancelar la consulta que el otro todavía espera.
+        return await asyncio.shield(task)
+
+    async def _load(self, package: PackageRef, *, omit_version: bool) -> OsvLookup:
+        identifiers = await self._query_ids(package, omit_version=omit_version)
         return await self._fetch_advisories(package, identifiers)
 
-    async def _query_ids(self, package: PackageRef) -> list[str]:
+    async def _query_ids(self, package: PackageRef, *, omit_version: bool) -> list[str]:
         token: str | None = None
         seen: set[str] = set()
         identifiers: list[str] = []
         for _ in range(_MAX_PAGES):
-            payload = await self._post_json("/v1/querybatch", _query_body(package, token))
+            payload = await self._post_json(
+                "/v1/querybatch",
+                _query_body(package, token, omit_version=omit_version),
+            )
             page = _first_page(payload)
             identifiers.extend(_page_ids(page))
             token = _next_page_token(page)
@@ -116,13 +172,12 @@ class OsvClient:
         identifiers: list[str],
     ) -> OsvLookup:
         if not identifiers:
-            return OsvLookup((), True)
+            return OsvLookup(())
         ordered: list[OsvAdvisory | None] = [None] * len(identifiers)
-        failed = False
+        failed: list[str | None] = [None] * len(identifiers)
         semaphore = asyncio.Semaphore(self._settings.osv_max_concurrency)
 
         async def fetch(index: int, advisory_id: str) -> None:
-            nonlocal failed
             async with semaphore:
                 try:
                     document = await self._get_json(f"/v1/vulns/{quote(advisory_id, safe='')}")
@@ -132,14 +187,15 @@ class OsvClient:
                         expected_id=advisory_id,
                     )
                 except OsvError:
-                    failed = True
+                    failed[index] = advisory_id
                     logger.warning("osv_advisory_fetch_failed", advisory_id=advisory_id)
 
         async with asyncio.TaskGroup() as group:
             for index, advisory_id in enumerate(identifiers):
                 group.create_task(fetch(index, advisory_id))
         advisories = tuple(item for item in ordered if item is not None)
-        return OsvLookup(advisories, not failed)
+        failed_ids = tuple(item for item in failed if item is not None)
+        return OsvLookup(advisories, failed_ids)
 
     async def _post_json(self, path: str, body: dict[str, object]) -> dict[str, object]:
         return await self._request("POST", path, json_body=body)
@@ -212,14 +268,20 @@ def _origin(base_url: str) -> str:
     return f"{parsed.scheme}://{host}{port}"
 
 
-def _query_body(package: PackageRef, page_token: str | None) -> dict[str, object]:
+def _query_body(
+    package: PackageRef,
+    page_token: str | None,
+    *,
+    omit_version: bool,
+) -> dict[str, object]:
     query: dict[str, object] = {
-        "version": package.version,
         "package": {
             "name": package.registry_name,
             "ecosystem": _OSV_ECOSYSTEM[package.ecosystem],
         },
     }
+    if not omit_version:
+        query["version"] = package.version
     if page_token is not None:
         query["page_token"] = page_token
     return {"queries": [query]}
@@ -298,7 +360,14 @@ def _advisory_from_document(
         fixed_in=_fixed_versions(document.get("affected"), package),
         vectors=_vectors(document.get("severity")),
         ecosystem_severity=_ecosystem_severity(document),
+        withdrawn=_withdrawn(document.get("withdrawn")),
     )
+
+
+def _withdrawn(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
 
 
 def _text(value: object) -> str:
