@@ -32,11 +32,11 @@ class VulnerabilityAnalyzer:
 
     Implementa ``supply_shield.core.Analyzer``. Una versión que OSV no menciona
     produce una lista vacía. Si OSV no se puede alcanzar, se propaga ``OsvError``:
-    el silencio no significa que el paquete esté limpio. Si algunos detalles se
-    descargan y otros no, los confirmados se entregan en ``IncompleteAnalysisError``
-    para que la decisión quede degradada sin perder el aviso ya conocido. Una
-    petición sin versión no se consulta, porque OSV devolvería todos los avisos
-    de ese nombre.
+    el silencio no significa que el paquete esté limpio. Si falla la descarga de
+    un aviso que no es ``MAL-``, los hallazgos ya armados se devuelven en
+    ``IncompleteAnalysisError``. Un fallo solo de malware no degrada esta regla.
+    Una petición sin versión no se consulta, porque OSV devolvería todos los
+    avisos de ese nombre.
     """
 
     rule = Rule.VULNERABILITY.value
@@ -46,16 +46,41 @@ class VulnerabilityAnalyzer:
 
     async def analyze(self, package: PackageRef, context: RequestContext) -> list[Finding]:
         """Devuelve un hallazgo por cada vulnerabilidad, uniendo los alias."""
-        lookup = await self._client.advisories_for(package)
+        lookup = await self._client.advisories_for(package, context=context)
         findings = _findings(package, lookup.advisories)
-        if not lookup.complete:
+        if any(not advisory_id.startswith("MAL-") for advisory_id in lookup.failed_ids):
             raise IncompleteAnalysisError(findings, "OSV advisory download did not finish")
         return findings
 
 
 def _findings(package: PackageRef, advisories: tuple[OsvAdvisory, ...]) -> list[Finding]:
-    confirmed = tuple(advisory for advisory in advisories if not _is_malware(advisory))
+    covered = _ids_covered_by_malware(advisories)
+    confirmed = tuple(
+        advisory
+        for advisory in advisories
+        if not _is_malware(advisory) and not _covered_by_malware(advisory, covered)
+    )
     return [_finding(package, group) for group in _groups(confirmed)]
+
+
+def _ids_covered_by_malware(advisories: tuple[OsvAdvisory, ...]) -> set[str]:
+    """Ids que ya explica un ``MAL-`` vigente de la misma consulta.
+
+    Incluye el id del aviso y sus alias. Un GHSA cubierto por ese ``MAL-`` no
+    se reporta otra vez como vulnerabilidad.
+    """
+    covered: set[str] = set()
+    for advisory in advisories:
+        if _is_malware(advisory) and advisory.withdrawn is None:
+            covered.add(advisory.id)
+            covered.update(advisory.aliases)
+    return covered
+
+
+def _covered_by_malware(advisory: OsvAdvisory, covered: set[str]) -> bool:
+    if advisory.id in covered:
+        return True
+    return any(alias in covered for alias in advisory.aliases)
 
 
 def _is_malware(advisory: OsvAdvisory) -> bool:
