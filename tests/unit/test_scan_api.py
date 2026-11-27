@@ -26,11 +26,15 @@ class _FakeStore:
 
 
 class _CleanAnalyzer:
+    rule = "vulnerability"
+
     async def analyze(self, package: PackageRef, context: RequestContext) -> list[Finding]:
         return []
 
 
 class _BlockingAnalyzer:
+    rule = "dependency_confusion"
+
     async def analyze(self, package: PackageRef, context: RequestContext) -> list[Finding]:
         if package.name == "requests":
             return [

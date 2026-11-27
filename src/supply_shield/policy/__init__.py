@@ -1,6 +1,7 @@
 """Motor de política: decide si un paquete pedido se permite, se advierte o se bloquea."""
 
 from supply_shield.policy.engine import FindingOutcome, action_for, assess, evaluate
+from supply_shield.policy.failure_modes import apply_failures
 from supply_shield.policy.holder import (
     PolicyHolder,
     PolicySource,
@@ -36,6 +37,7 @@ __all__ = [
     "RuleOverride",
     "RulePolicy",
     "action_for",
+    "apply_failures",
     "assess",
     "default_source",
     "evaluate",

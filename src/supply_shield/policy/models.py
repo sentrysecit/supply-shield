@@ -46,12 +46,21 @@ def _check_threshold(value: Severity | None) -> None:
         raise ValueError(msg)
 
 
+def _check_on_failure(value: RuleMode | None) -> None:
+    if value is RuleMode.LOG:
+        msg = "on_failure cannot be 'log'; a detector failure must block or warn"
+        raise ValueError(msg)
+
+
 class RulePolicy(BaseModel):
     """Cómo trata la política los hallazgos de una regla.
 
     Un hallazgo con severidad igual o mayor que ``severity_threshold`` recibe
     ``mode``; uno por debajo solo se registra. Un hallazgo ``UNKNOWN`` no se
-    compara con el umbral: recibe ``unknown`` (ver ADR 0003).
+    compara con el umbral: recibe ``unknown`` (ver ADR 0003). ``on_failure`` es
+    lo que pasa cuando el detector de esta regla no termina: ``block`` no sirve
+    el paquete y ``warn`` lo sirve dejando alerta. ``log`` no vale, porque una
+    falla no puede pasar en silencio.
     """
 
     model_config = FROZEN
@@ -59,11 +68,18 @@ class RulePolicy(BaseModel):
     mode: RuleMode = RuleMode.WARN
     severity_threshold: Severity = Severity.LOW
     unknown: RuleMode = RuleMode.WARN
+    on_failure: RuleMode = RuleMode.WARN
 
     @field_validator("severity_threshold")
     @classmethod
     def _known_threshold(cls, value: Severity) -> Severity:
         _check_threshold(value)
+        return value
+
+    @field_validator("on_failure")
+    @classmethod
+    def _audible_failure(cls, value: RuleMode) -> RuleMode:
+        _check_on_failure(value)
         return value
 
     def mode_for(self, severity: Severity) -> RuleMode:
@@ -83,11 +99,18 @@ class RuleOverride(BaseModel):
     mode: RuleMode | None = None
     severity_threshold: Severity | None = None
     unknown: RuleMode | None = None
+    on_failure: RuleMode | None = None
 
     @field_validator("severity_threshold")
     @classmethod
     def _known_threshold(cls, value: Severity | None) -> Severity | None:
         _check_threshold(value)
+        return value
+
+    @field_validator("on_failure")
+    @classmethod
+    def _audible_failure(cls, value: RuleMode | None) -> RuleMode | None:
+        _check_on_failure(value)
         return value
 
     def apply_to(self, base: RulePolicy) -> RulePolicy:
@@ -156,6 +179,7 @@ DEFAULT_RULE = RulePolicy(
     mode=RuleMode.WARN,
     severity_threshold=Severity.LOW,
     unknown=RuleMode.WARN,
+    on_failure=RuleMode.WARN,
 )
 
 DEFAULT_RULES: dict[Rule, RulePolicy] = {
@@ -163,36 +187,43 @@ DEFAULT_RULES: dict[Rule, RulePolicy] = {
         mode=RuleMode.BLOCK,
         severity_threshold=Severity.CRITICAL,
         unknown=RuleMode.WARN,
+        on_failure=RuleMode.WARN,
     ),
     Rule.KNOWN_MALWARE: RulePolicy(
         mode=RuleMode.BLOCK,
         severity_threshold=Severity.LOW,
         unknown=RuleMode.BLOCK,
+        on_failure=RuleMode.BLOCK,
     ),
     Rule.TYPOSQUATTING: RulePolicy(
         mode=RuleMode.BLOCK,
         severity_threshold=Severity.HIGH,
         unknown=RuleMode.WARN,
+        on_failure=RuleMode.WARN,
     ),
     Rule.DEPENDENCY_CONFUSION: RulePolicy(
         mode=RuleMode.BLOCK,
         severity_threshold=Severity.LOW,
         unknown=RuleMode.BLOCK,
+        on_failure=RuleMode.BLOCK,
     ),
     Rule.COOLDOWN: RulePolicy(
         mode=RuleMode.BLOCK,
         severity_threshold=Severity.LOW,
         unknown=RuleMode.BLOCK,
+        on_failure=RuleMode.WARN,
     ),
     Rule.INSTALL_SCRIPTS: RulePolicy(
         mode=RuleMode.WARN,
         severity_threshold=Severity.LOW,
         unknown=RuleMode.WARN,
+        on_failure=RuleMode.WARN,
     ),
     Rule.NEW_PACKAGE: RulePolicy(
         mode=RuleMode.WARN,
         severity_threshold=Severity.LOW,
         unknown=RuleMode.WARN,
+        on_failure=RuleMode.WARN,
     ),
 }
 """Política de fábrica por regla. ``docs/policy.md`` explica cada valor."""

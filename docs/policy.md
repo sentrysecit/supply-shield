@@ -13,7 +13,7 @@ Para cada hallazgo (`Finding`) que llega de un detector:
    - Severidad igual o mayor que `severity_threshold`: se aplica `mode`.
    - Severidad por debajo del umbral: solo se registra.
 
-La decisión del paquete es la del hallazgo **más estricto**: basta un hallazgo en `block` para bloquear, aunque los demás solo adviertan.
+La decisión del paquete es la del hallazgo **más estricto**: basta un hallazgo en `block` para bloquear, aunque los demás solo adviertan. Si un detector no termina, entra además su `on_failure` (abajo) y gana, otra vez, la acción más estricta.
 
 | Modo de la regla | Acción del proxy (`DecisionAction`) | Qué ve el usuario |
 | --- | --- | --- |
@@ -29,16 +29,16 @@ Las severidades se ordenan `low < medium < high < critical`.
 
 Es la misma en el código (`DEFAULT_RULES`) y en `config/policy.yaml`; una prueba falla si se separan. Si el archivo no existe (por ejemplo, en la imagen Docker sin un volumen montado), se aplica esta misma política.
 
-| Regla | Detector | `mode` | `severity_threshold` | `unknown` |
-| --- | --- | --- | --- | --- |
-| `vulnerability` | D3-3, OSV.dev | `block` | `critical` | `warn` |
-| `known_malware` | D3-4, avisos `MAL-` | `block` | `low` | `block` |
-| `typosquatting` | D4-4 ([cómo puntúa](typosquatting.md#puntaje-y-severidad)) | `block` | `high` | `warn` |
-| `dependency_confusion` | D5-4 | `block` | `low` | `block` |
-| `cooldown` | D5-2 | `block` | `low` | `block` |
-| `install_scripts` | D5-2 | `warn` | `low` | `warn` |
-| `new_package` | D5-2 | `warn` | `low` | `warn` |
-| *(regla desconocida)* `default_rule` | — | `warn` | `low` | `warn` |
+| Regla | Detector | `mode` | `severity_threshold` | `unknown` | `on_failure` |
+| --- | --- | --- | --- | --- | --- |
+| `vulnerability` | D3-3, OSV.dev | `block` | `critical` | `warn` | `warn` |
+| `known_malware` | D3-4, avisos `MAL-` | `block` | `low` | `block` | `block` |
+| `typosquatting` | D4-4 ([cómo puntúa](typosquatting.md#puntaje-y-severidad)) | `block` | `high` | `warn` | `warn` |
+| `dependency_confusion` | D5-4 | `block` | `low` | `block` | `block` |
+| `cooldown` | D5-2 | `block` | `low` | `block` | `warn` |
+| `install_scripts` | D5-2 | `warn` | `low` | `warn` | `warn` |
+| `new_package` | D5-2 | `warn` | `low` | `warn` | `warn` |
+| *(regla desconocida)* `default_rule` | — | `warn` | `low` | `warn` | `warn` |
 
 ### Por qué estos valores
 
@@ -49,6 +49,7 @@ Es la misma en el código (`DEFAULT_RULES`) y en `config/policy.yaml`; una prueb
 - **`cooldown`: bloquear.** Las versiones recién publicadas son la ventana en la que se cuelan las cuentas comprometidas (`event-stream`, `ua-parser-js`) antes de que exista un advisory. Bloquearlas unos días deja que el ecosistema las revise. Si un equipo necesita un parche urgente, pide una excepción por paquete y versión.
 - **`install_scripts` y `new_package`: advertir.** Son señales de riesgo, no de ataque: muchos paquetes legítimos (`esbuild`, `node-gyp`, `sharp`) usan scripts de instalación, y todo paquete fue nuevo alguna vez. Bloquearlos por defecto daría demasiados falsos positivos.
 - **`default_rule`: advertir.** Si llega un hallazgo de un detector que la política aún no conoce, no se bloquea por una regla que nadie configuró, pero tampoco se ignora.
+- **`on_failure`: no tratar el silencio como paquete limpio.** `block` en `known_malware` y `dependency_confusion`: si ese detector no contesta, dejar pasar el paquete es el daño caro. `warn` en vulnerabilidades, typosquatting y heurísticas: parar el equipo porque OSV o una señal local no respondió es peor que servir el paquete y dejar la alerta. La decisión queda `degraded`. `log` no es un valor válido. Una excepción no cubre esta falla, porque la excepción habla de un aviso conocido y aquí la fuente no contestó. Un proyecto puede cambiar el campo en su bloque `projects`.
 
 ## Ajustes por proyecto
 
@@ -131,12 +132,11 @@ decision = evaluate(findings, context, policy)  # PolicyDecision
 decision = evaluate(findings, context, policy, now=t)  # determinista
 ```
 
-- `evaluate` no hace E/S ni guarda estado. La única entrada implícita es el reloj; pasa `now` (con zona horaria) en pruebas.
+- `evaluate` no hace E/S ni guarda estado. La única entrada implícita es el reloj; pasa `now` (con zona horaria) en pruebas. No aplica `on_failure`: eso lo hace `apply_failures` cuando quien corrió los detectores le dice qué reglas fallaron. El escaneo de lockfiles ya lo llama.
 - `assess` devuelve el detalle por hallazgo (`FindingOutcome`: regla efectiva, modo, excepción aplicada o vencida), útil para métricas por regla y modo (D3-7) y para la auditoría.
 - La aplicación carga la política al arrancar en `app.state.policy_holder` (`PolicyHolder`). La política efectiva, con las excepciones de la API, es `app.state.policy_holder.current`; `revision` sube con cada cambio y debe formar parte de la clave de las decisiones cacheadas (D3-6).
 - Un detector nuevo agrega su id a `supply_shield.policy.Rule` y su valor por defecto a `DEFAULT_RULES` (y a `config/policy.yaml`).
 
 ## Pendiente en otras tareas
 
-- **D3-5**: qué hacer cuando un detector falla (*fail-open* / *fail-closed*), configurable por regla en esta misma política, y la marca de decisión degradada.
 - **D3-6**: el motor de evaluación llama a `evaluate` con los hallazgos de todos los detectores y cachea la decisión.

@@ -5,9 +5,12 @@ from datetime import UTC, datetime, timedelta
 from supply_shield.config import Settings
 from supply_shield.core import Finding, PackageRef, PackageRelease, RequestContext, Severity
 from supply_shield.core.upstream_metadata import UpstreamMetadata
+from supply_shield.policy.rules import Rule
 
 
 class CooldownAnalyzer:
+    rule = Rule.COOLDOWN.value
+
     def __init__(self, settings: Settings, metadata: UpstreamMetadata) -> None:
         self.settings = settings
         self.metadata = metadata

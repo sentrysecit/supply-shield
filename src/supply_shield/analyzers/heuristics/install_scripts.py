@@ -3,11 +3,14 @@ from __future__ import annotations
 from supply_shield.config import Settings
 from supply_shield.core import Ecosystem, Finding, PackageRef, RequestContext, Severity
 from supply_shield.core.upstream_metadata import UpstreamMetadata
+from supply_shield.policy.rules import Rule
 
 _RISKY_SCRIPTS = {"preinstall", "install", "postinstall"}
 
 
 class InstallScriptsAnalyzer:
+    rule = Rule.INSTALL_SCRIPTS.value
+
     def __init__(self, settings: Settings, metadata: UpstreamMetadata) -> None:
         self.settings = settings
         self.metadata = metadata
