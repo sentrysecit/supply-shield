@@ -2,7 +2,7 @@
 
 Supply-Shield se ubica entre los clientes de paquetes del equipo y los registros públicos. Funciona como **registry mirror**: los clientes lo usan como si fuera el registro (ver [ADR 0002](adr/0002-registry-mirror-instead-of-mitm-proxy.md)).
 
-> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria, la lista de paquetes populares (`data/popular/`), el detector de typosquatting (`analyzers/typosquatting/`, ver [typosquatting.md](typosquatting.md)) el motor de políticas (`policy/`, ver [policy.md](policy.md)), la base de datos (`db/`) y la API de administración (`api/admin/`, ver [admin-api.md](admin-api.md)). Los demás detectores, el motor de evaluación y el proxy todavía no.
+> Este documento describe la arquitectura objetivo. Hoy están la aplicación base, los endpoints de salud, los modelos compartidos (`core/`), la caché en memoria, la lista de paquetes populares (`data/popular/`), el detector de typosquatting (`analyzers/typosquatting/`, ver [typosquatting.md](typosquatting.md)) el motor de políticas (`policy/`, ver [policy.md](policy.md)), la base de datos (`db/`), la API de administración (`api/admin/`, ver [admin-api.md](admin-api.md)) y el espejo de PyPI (`proxy/pypi/`, ver [pypi.md](pypi.md)). El espejo de npm, los demás detectores y el motor de evaluación todavía no.
 
 ## Vista de alto nivel
 

@@ -35,11 +35,11 @@ __all__ = [
     "stream_upstream",
 ]
 
-DigestAlgorithm = Literal["sha512", "sha1"]
+DigestAlgorithm = Literal["sha512", "sha256", "sha1"]
 """Algoritmos con los que se puede verificar un artefacto.
 
-``sha1`` existe solo para versiones antiguas de npm que no publican un SHA-512
-(ver ADR 0014); todo lo demás se verifica con ``sha512``.
+``sha256`` es el hash de PyPI; ``sha1`` existe solo para versiones antiguas de npm
+que no publican un SHA-512 (ver ADR 0014); todo lo demás se verifica con ``sha512``.
 """
 
 _REDIRECT_STATUS_LOWER = 300
@@ -73,7 +73,7 @@ class UpstreamDownload:
         self,
         response: httpx.Response,
         url: httpx.URL,
-        expected_hex: str,
+        expected_hex: str | None,
         algorithm: DigestAlgorithm,
         max_bytes: int,
     ) -> None:
@@ -104,7 +104,7 @@ class UpstreamDownload:
                 yield chunk
         finally:
             await self._response.aclose()
-        if hasher.hexdigest() != self._expected_hex:
+        if self._expected_hex is not None and hasher.hexdigest() != self._expected_hex:
             raise UpstreamIntegrityError(
                 f"{self._algorithm.upper()} of {self._url} did not match the expected digest",
             )
@@ -117,7 +117,7 @@ class UpstreamDownload:
 async def open_upstream_download(
     client: httpx.AsyncClient,
     url: str | httpx.URL,
-    expected_digest: str,
+    expected_digest: str | None,
     settings: Settings,
     algorithm: DigestAlgorithm = "sha512",
 ) -> UpstreamDownload:
@@ -128,10 +128,15 @@ async def open_upstream_download(
     Lanza :class:`UpstreamHostError` si la URL o un redirect salen de la allowlist,
     :class:`UpstreamRequestError` ante un error de red, un status de error o una
     codificación inesperada, y :class:`UpstreamTooLargeError` si el tamaño
-    declarado ya pasa el límite.
+    declarado ya pasa el límite. Con ``expected_digest`` en ``None`` los bytes se
+    reenvían sin verificar (el cliente los comprueba con sus propios hashes).
     """
     parsed = validate_upstream_url(url, settings.upstream_hosts)
-    expected = _normalize_expected_digest(expected_digest, algorithm)
+    expected = (
+        _normalize_expected_digest(expected_digest, algorithm)
+        if expected_digest is not None
+        else None
+    )
     max_bytes = settings.upstream_max_response_bytes
     request = client.build_request("GET", parsed, headers={"Accept-Encoding": _IDENTITY})
     try:
